@@ -1,5 +1,6 @@
 // Journal des repas – étapes 3a à 3c : connexion, écran du jour, ajout / modification / suppression,
-// grignotages, cheat meal, « Copier d'hier », favoris, objectifs, semaine, scan et fiches d'aliments, recettes
+// grignotages, cheat meal, « Copier d'hier », favoris, objectifs, semaine, scan et fiches d'aliments, recettes,
+// appli installable et lecture sans réseau
 'use strict';
 
 const client = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseCle);
@@ -31,6 +32,7 @@ const etat = {
   recetteOuverte: null, // recette affichée dans la feuille (null = nouvelle)
   ingredients: [],      // ingrédients en cours d'édition : { aliment, quantite (texte) }
   destination: 'journal', // où va l'aliment scanné ou créé : 'journal' ou 'recette'
+  horsLigne: false,     // pas de réseau : lecture seule, avec la copie gardée sur le téléphone
   favoris: new Set(),   // identifiants des aliments favoris
   ouvert: null,         // moment déplié
   momentAjout: null,    // moment où on ajoute
@@ -132,12 +134,94 @@ function erreur(e) {
   afficherBandeau('Erreur : ' + (e.message || e));
 }
 
+// ---------- Copie sur le téléphone (pour la lecture sans réseau) ----------
+
+// Rangée par compte, effacée à la déconnexion
+const copie = {
+  cle: (nom) => 'buonapp:' + etat.moi + ':' + nom,
+  lire(nom) {
+    try { return JSON.parse(localStorage.getItem(copie.cle(nom))); } catch (e) { return null; }
+  },
+  ecrire(nom, valeur) {
+    try { localStorage.setItem(copie.cle(nom), JSON.stringify(valeur)); } catch (e) { console.warn('Copie impossible', e); }
+  },
+  // Garde seulement les n dernières clés d'une famille (jours, semaines)
+  garder(famille, nom, n) {
+    const liste = (copie.lire(famille) || []).filter((x) => x !== nom);
+    liste.unshift(nom);
+    for (const ancien of liste.slice(n)) localStorage.removeItem(copie.cle(ancien));
+    copie.ecrire(famille, liste.slice(0, n));
+  },
+  vider() {
+    for (const cle of Object.keys(localStorage)) if (cle.startsWith('buonapp:')) localStorage.removeItem(cle);
+  }
+};
+
+function avecDelai(promesse, ms) {
+  return Promise.race([promesse, new Promise((_, rejeter) => setTimeout(() => rejeter(new Error('délai dépassé')), ms))]);
+}
+
+// Erreur due au réseau (pas de connexion, wifi sans internet…) ?
+function estErreurReseau(e) {
+  return !navigator.onLine || /fetch|network|load failed|délai/i.test(String(e && e.message));
+}
+
+// Bloque une écriture sans réseau
+function lectureSeule() {
+  if (!etat.horsLigne) return false;
+  afficherBandeau('Hors connexion : lecture seule');
+  return true;
+}
+
+function passerHorsLigne() {
+  etat.horsLigne = true;
+  document.body.classList.add('hors-ligne');
+  $('bandeauHorsLigne').hidden = false;
+  etat.aliments = (copie.lire('aliments') || []).map(preparerAliment);
+  etat.objectifs = copie.lire('objectifs') || {};
+  etat.favoris = new Set(copie.lire('favoris') || []);
+  $('titreProfil').textContent = copie.lire('prenom') || 'Profil';
+  preparerRecettes(copie.lire('recettes') || [], copie.lire('ingredients') || []);
+  rechargerEcran();
+}
+
+function passerEnLigne() {
+  etat.horsLigne = false;
+  document.body.classList.remove('hors-ligne');
+  $('bandeauHorsLigne').hidden = true;
+  ouvrirAppli();
+}
+
+window.addEventListener('offline', () => { if (!$('barreBas').hidden && !etat.horsLigne) passerHorsLigne(); });
+window.addEventListener('online', () => { if (!$('barreBas').hidden && etat.horsLigne) passerEnLigne(); });
+
+function rechargerEcran() {
+  const p = etat.ecran === 'semaine' ? chargerSemaine()
+    : etat.ecran === 'recettes' ? Promise.resolve(afficherRecettes())
+    : chargerJour();
+  return p.catch(erreur);
+}
+
 // ---------- Connexion ----------
 
 async function demarrer() {
-  const { data } = await client.auth.getSession();
-  if (data.session) ouvrirAppli();
-  else montrerConnexion();
+  const moiEnCopie = localStorage.getItem('buonapp:moi');
+  // Sans réseau : on ouvre tout de suite avec la copie (sans attendre Supabase)
+  if (!navigator.onLine && moiEnCopie) {
+    etat.moi = moiEnCopie;
+    return ouvrirAppli(true);
+  }
+  let session = null;
+  try {
+    const { data } = await avecDelai(client.auth.getSession(), 3000);
+    session = data.session;
+  } catch (e) {
+    if (moiEnCopie) { etat.moi = moiEnCopie; return ouvrirAppli(true); }
+  }
+  if (!session) return montrerConnexion();
+  etat.moi = session.user.id;
+  localStorage.setItem('buonapp:moi', etat.moi);
+  ouvrirAppli();
 }
 
 function montrerConnexion() {
@@ -160,27 +244,32 @@ $('formConnexion').addEventListener('submit', async (ev) => {
     return;
   }
   $('champMotDePasse').value = '';
+  const { data } = await client.auth.getSession();
+  etat.moi = data.session.user.id;
+  localStorage.setItem('buonapp:moi', etat.moi);
   ouvrirAppli();
 });
 
 $('boutonDeconnexion').addEventListener('click', async () => {
+  if (lectureSeule()) return;
   await client.auth.signOut({ scope: 'local' });   // ce téléphone seulement
+  copie.vider();                                    // la copie des données part avec
   $('feuilleProfil').close();
   montrerConnexion();
 });
 
-async function ouvrirAppli() {
+async function ouvrirAppli(sansReseau = false) {
   $('ecranConnexion').hidden = true;
   $('barreBas').hidden = false;
-  montrerEcran('jour');
+  montrerEcran(etat.ecran);
+  if (sansReseau) return passerHorsLigne();
   try {
-    const { data } = await client.auth.getSession();
-    etat.moi = data.session ? data.session.user.id : null;
-    await Promise.all([chargerAliments(), chargerObjectifs(), chargerPrenom(), chargerFavoris()]);
-    await chargerRecettes();
-    await chargerJour();
+    await avecDelai(Promise.all([chargerAliments(), chargerObjectifs(), chargerPrenom(), chargerFavoris(), chargerRecettes()]), 8000);
+    calculerRecettes();   // les recettes ont besoin des aliments, chargés en même temps
+    await rechargerEcran();
   } catch (e) {
-    erreur(e);
+    if (estErreurReseau(e)) passerHorsLigne();
+    else erreur(e);
   }
 }
 
@@ -188,6 +277,7 @@ async function chargerPrenom() {
   const { data, error } = await client.from('membres').select('prenom').maybeSingle();
   if (error) throw error;
   $('titreProfil').textContent = data ? data.prenom : 'Profil';
+  copie.ecrire('prenom', data ? data.prenom : null);
 }
 
 // ---------- Chargement des données ----------
@@ -206,6 +296,7 @@ async function chargerAliments() {
     if (data.length < taille) break;
   }
   etat.aliments = tous.map(preparerAliment);
+  copie.ecrire('aliments', tous);
 }
 
 function preparerAliment(a) {
@@ -217,16 +308,27 @@ async function chargerObjectifs() {
   if (error) throw error;
   etat.objectifs = {};
   for (const o of data) etat.objectifs[o.type_jour] = o;
+  copie.ecrire('objectifs', etat.objectifs);
 }
 
 async function chargerFavoris() {
   const { data, error } = await client.from('favoris').select('aliment_id').not('aliment_id', 'is', null);
   if (error) throw error;
   etat.favoris = new Set(data.map((f) => f.aliment_id));
+  copie.ecrire('favoris', [...etat.favoris]);
 }
 
 async function chargerJour() {
   const jour = etat.jour;
+  if (etat.horsLigne) {
+    const c = copie.lire('jour:' + jour);
+    etat.lignes = c ? c.lignes : [];
+    etat.typeJour = c ? c.typeJour : 'repos';
+    etat.cheats = new Set(c ? c.cheats : []);
+    afficherJour();
+    if (!c) afficherBandeau('Pas de copie de ce jour sur ce téléphone');
+    return;
+  }
   const [lignes, type, cheats] = await Promise.all([
     client.from('entrees')
       .select('id, moment, nom, quantite, unite, proteines_ref, glucides_ref, lipides_ref, fibres_ref, kcal_ref, proteines, glucides, lipides, fibres, kcal')
@@ -241,6 +343,8 @@ async function chargerJour() {
   etat.typeJour = type.data ? type.data.type_jour : 'repos';
   etat.cheats = new Set(cheats.data.map((c) => c.moment));
   afficherJour();
+  copie.ecrire('jour:' + jour, { lignes: etat.lignes, typeJour: etat.typeJour, cheats: [...etat.cheats] });
+  copie.garder('jours', 'jour:' + jour, 31);   // les 31 derniers jours consultés
 }
 
 // ---------- Affichage du jour ----------
@@ -323,7 +427,7 @@ function carteMoment(moment, lignes) {
       ]),
       el('span', { classe: 'moment-kcal', texte: estCheat ? '–' : n === 0 ? '' : nombre(kcal) })
     ]),
-    estCheat ? null : el('button', { classe: 'bouton-plus', 'aria-label': 'Ajouter : ' + moment.nom, onclick: () => ouvrirAjout(moment) }, [iconePlus()])
+    estCheat ? null : el('button', { classe: 'bouton-plus ecrit', 'aria-label': 'Ajouter : ' + moment.nom, onclick: () => ouvrirAjout(moment) }, [iconePlus()])
   ]);
 
   const detail = [];
@@ -383,14 +487,14 @@ document.addEventListener('visibilitychange', () => {
   const auj = aujourdhui();
   if (auj !== jourAuDepart && etat.jour === jourAuDepart) etat.jour = auj;
   jourAuDepart = auj;
-  if (etat.ecran === 'jour') chargerJour().catch(erreur);
-  else if (etat.ecran === 'semaine') chargerSemaine().catch(erreur);
+  if (etat.horsLigne && navigator.onLine) return passerEnLigne();
+  rechargerEcran();
 });
 
 // ---------- Type de jour (repos par défaut = pas de ligne en base) ----------
 
 async function choisirType(type) {
-  if (type === etat.typeJour) return;
+  if (lectureSeule() || type === etat.typeJour) return;
   const requete = type === 'entrainement'
     ? client.from('jours').insert({ jour: etat.jour, type_jour: 'entrainement' })
     : client.from('jours').delete().eq('jour', etat.jour);
@@ -406,6 +510,7 @@ $('boutonEntrainement').addEventListener('click', () => choisirType('entrainemen
 // ---------- Cheat meal et « Copier d'hier » ----------
 
 async function basculerCheat(moment, activer, bouton) {
+  if (lectureSeule()) return;
   bouton.disabled = true;
   const { error } = activer
     ? await client.from('cheat_meals').insert({ jour: etat.jour, moment: moment.id })
@@ -416,6 +521,7 @@ async function basculerCheat(moment, activer, bouton) {
 
 // Copie les aliments du même repas, la veille du jour affiché
 async function copierHier(moment, bouton) {
+  if (lectureSeule()) return;
   bouton.disabled = true;
   const veille = decaler(etat.jour, -1);
   const { data, error } = await client.from('entrees')
@@ -451,6 +557,7 @@ function grignotageSelonHeure() {
 }
 
 function ouvrirAjout(moment) {
+  if (lectureSeule()) return;
   etat.momentAjout = moment;
   etat.alimentChoisi = null;
   $('titreAjout').textContent = moment.repas ? 'Ajouter au ' + moment.nom : 'Ajouter un grignotage';
@@ -539,6 +646,7 @@ function majBoutonFavori() {
 }
 
 $('boutonFavori').addEventListener('click', async () => {
+  if (lectureSeule()) return;
   const a = etat.alimentChoisi;
   const favori = etat.favoris.has(a.id);
   $('boutonFavori').disabled = true;
@@ -598,6 +706,7 @@ $('boutonRetour').addEventListener('click', () => {
 });
 
 $('boutonAjouter').addEventListener('click', async () => {
+  if (lectureSeule()) return;
   const a = etat.alimentChoisi;
   const q = lireQuantite($('champQuantite').value);
   if (!a || q === null) return;
@@ -634,6 +743,7 @@ let fluxCamera = null;
 let scanEnCours = false;
 
 async function ouvrirScan() {
+  if (lectureSeule()) return;
   $('champCode').value = '';
   $('etatScan').textContent = 'Vise le code-barres du paquet';
   $('feuilleScan').showModal();
@@ -745,6 +855,7 @@ function enTexte(x) {
 
 // aliment = aliment à modifier (ou null) ; code et produit = résultat d'un scan
 function ouvrirFiche(aliment, code, produit) {
+  if (lectureSeule()) return;
   etat.ficheAliment = aliment;
   etat.ficheSource = produit ? 'openfoodfacts' : 'manuel';
   for (const champ of $('formAliment').querySelectorAll('input')) {
@@ -831,6 +942,7 @@ function lireNombre(id, max) {
 
 $('formAliment').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (lectureSeule()) return;
   const message = (texte) => { $('messageFiche').textContent = texte; };
   message('');
 
@@ -893,6 +1005,7 @@ $('formAliment').addEventListener('submit', async (ev) => {
 
 // Suppression d'un aliment en deux appuis
 $('boutonSupprimerAliment').addEventListener('click', async () => {
+  if (lectureSeule()) return;
   const bouton = $('boutonSupprimerAliment');
   if (!bouton.classList.contains('confirmer')) {
     bouton.classList.add('confirmer');
@@ -919,14 +1032,21 @@ $('boutonSupprimerAliment').addEventListener('click', async () => {
 const NUTRIMENTS = ['proteines', 'glucides', 'lipides', 'fibres', 'kcal'];
 
 async function chargerRecettes() {
+  if (etat.horsLigne) return;
   const [recettes, ingredients] = await Promise.all([
     client.from('recettes').select('id, nom, nb_portions, poids_cuit, cree_par').order('nom'),
     client.from('recette_ingredients').select('id, recette_id, aliment_id, quantite').limit(10000)
   ]);
   for (const r of [recettes, ingredients]) if (r.error) throw r.error;
-  etat.recettes = recettes.data.map((r) => ({
+  preparerRecettes(recettes.data, ingredients.data);
+  copie.ecrire('recettes', recettes.data);
+  copie.ecrire('ingredients', ingredients.data);
+}
+
+function preparerRecettes(recettes, ingredients) {
+  etat.recettes = recettes.map((r) => ({
     ...r, type: 'recette', recherche: normaliser(r.nom),
-    lignes: ingredients.data.filter((i) => i.recette_id === r.id)
+    lignes: ingredients.filter((i) => i.recette_id === r.id)
   }));
   calculerRecettes();
 }
@@ -998,7 +1118,7 @@ function ouvrirRecette(r) {
   if (!r) $('recetteNom').focus();
 }
 
-$('boutonNouvelleRecette').addEventListener('click', () => ouvrirRecette(null));
+$('boutonNouvelleRecette').addEventListener('click', () => { if (!lectureSeule()) ouvrirRecette(null); });
 
 function afficherIngredients(lecture) {
   $('listeIngredients').replaceChildren(...etat.ingredients.map((ing, i) => {
@@ -1067,6 +1187,7 @@ function ajouterIngredient(a) {
 
 $('formRecette').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (lectureSeule()) return;
   const message = (texte) => { $('messageRecette').textContent = texte; };
   message('');
   const r = etat.recetteOuverte;
@@ -1133,6 +1254,7 @@ $('formRecette').addEventListener('submit', async (ev) => {
 
 // Suppression d'une recette en deux appuis (les lignes déjà encodées restent)
 $('boutonSupprimerRecette').addEventListener('click', async () => {
+  if (lectureSeule()) return;
   const bouton = $('boutonSupprimerRecette');
   if (!bouton.classList.contains('confirmer')) {
     bouton.classList.add('confirmer');
@@ -1170,6 +1292,7 @@ function majApercuLigne() {
 $('champQuantiteLigne').addEventListener('input', majApercuLigne);
 
 $('boutonEnregistrerLigne').addEventListener('click', async () => {
+  if (lectureSeule()) return;
   const q = lireQuantite($('champQuantiteLigne').value);
   if (q === null) return;
   const { error } = await client.from('entrees').update({ quantite: q }).eq('id', etat.ligneChoisie.id);
@@ -1180,6 +1303,7 @@ $('boutonEnregistrerLigne').addEventListener('click', async () => {
 
 // Suppression en deux appuis : « Supprimer » puis « Confirmer »
 $('boutonSupprimerLigne').addEventListener('click', async () => {
+  if (lectureSeule()) return;
   const bouton = $('boutonSupprimerLigne');
   if (!bouton.classList.contains('confirmer')) {
     bouton.classList.add('confirmer');
@@ -1237,6 +1361,7 @@ function ouvrirProfil() {
 
 $('formObjectifs').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (lectureSeule()) return;
   $('messageObjectifs').textContent = '';
   // 1) Vérification de toutes les cases avant d'écrire quoi que ce soit
   const aEcrire = {};
@@ -1306,6 +1431,11 @@ async function chargerSemaine() {
   const lundi = lundiDe(etat.jour);
   const dimanche = decaler(lundi, 6);
   $('texteSemaine').textContent = texteSemaine(lundi);
+  if (etat.horsLigne) {
+    const c = copie.lire('semaine:' + lundi);
+    if (!c) afficherBandeau('Pas de copie de cette semaine sur ce téléphone');
+    return afficherSemaine(lundi, c ? c.lignes : [], c ? c.cheats : []);
+  }
   const [lignes, cheats] = await Promise.all([
     client.from('entrees').select('jour, moment, proteines, glucides, lipides, fibres, kcal')
       .gte('jour', lundi).lte('jour', dimanche).limit(5000),
@@ -1314,6 +1444,8 @@ async function chargerSemaine() {
   for (const r of [lignes, cheats]) if (r.error) throw r.error;
   if (lundiDe(etat.jour) !== lundi) return;   // on a changé de semaine entre-temps
   afficherSemaine(lundi, lignes.data, cheats.data);
+  copie.ecrire('semaine:' + lundi, { lignes: lignes.data, cheats: cheats.data });
+  copie.garder('semaines', 'semaine:' + lundi, 8);   // les 8 dernières semaines consultées
 }
 
 function afficherSemaine(lundi, lignes, cheats) {
@@ -1404,6 +1536,11 @@ $('boutonSemaineSuivante').addEventListener('click', () => { etat.jour = decaler
 
 for (const bouton of document.querySelectorAll('[data-fermer]')) {
   bouton.addEventListener('click', () => bouton.closest('dialog').close());
+}
+
+// Appli installable et ouverture sans réseau
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch((e) => console.error('Service worker', e));
 }
 
 demarrer().catch(erreur);

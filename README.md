@@ -1,4 +1,4 @@
-# 🍽️ Journal des repas
+# 🍽️ Buon app'
 
 Appli pour encoder ce qu'on mange chaque jour (Emma, Régine, Jérôme).
 iPhone uniquement pour l'instant.
@@ -24,7 +24,11 @@ Scripts à coller dans l'ordre dans Supabase › SQL Editor. Chacun peut être r
 
 - `index.html`, `style.css`, `app.js` : l'appli.
 - `config.js` : adresse du projet Supabase et clé **publishable** (publique). Jamais la clé secrète.
-- À chaque mise à jour de `style.css`, `app.js` ou `config.js`, augmenter le numéro `?v=` dans `index.html`, sinon l'iPhone garde l'ancienne version.
+- `manifest.json` + `icones/` : appli installable (« Partager › Ajouter à l'écran d'accueil » dans Safari).
+- `sw.js` : service worker. Les fichiers de l'appli sont toujours redemandés au serveur (copie seulement sans réseau ou après 4 s) ; les bibliothèques jsDelivr (versions figées) sont gardées. Les données Supabase et Open Food Facts ne passent jamais par lui.
+- Sans réseau : lecture seule, avec la copie gardée sur le téléphone (`localStorage`) : aliments, recettes, objectifs, favoris, 31 derniers jours et 8 dernières semaines consultés. Effacée à la déconnexion.
+- Plus besoin de changer le numéro `?v=` à chaque mise à jour (le service worker revérifie les fichiers).
+- Si la liste des fichiers de `sw.js` change, changer le nom du cache (`buonapp-1` → `buonapp-2`).
 
 ## 📦 Bibliothèques (versions figées)
 

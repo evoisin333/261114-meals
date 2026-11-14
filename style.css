@@ -303,3 +303,10 @@ h1, h2, h3, p { margin: 0; }
 .liste-ingredients button { width: 40px; height: 40px; border: none; background: none; color: var(--danger); font-size: 20px; }
 #feuilleRecette h3 { font-size: 17px; margin-top: 6px; color: var(--texte); }
 #choixUniteRecette { justify-content: flex-start; margin: 0; }
+
+/* Étape 4 : hors connexion */
+.bandeau-hors-ligne {
+  position: sticky; top: max(8px, env(safe-area-inset-top)); z-index: 6; margin: 0 auto 12px; width: fit-content;
+  background: var(--cheat); color: #1C1C1E; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 14px;
+}
+body.hors-ligne .ecrit, body.hors-ligne .actions-moment button { opacity: 0.35; }

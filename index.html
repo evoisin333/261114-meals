@@ -4,16 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Repas">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Buon app'">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="color-scheme" content="light dark">
-<title>Repas</title>
-<link rel="stylesheet" href="style.css?v=6">
+<meta name="theme-color" content="#F2F2F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1012" media="(prefers-color-scheme: dark)">
+<title>Buon app'</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icones/icone-180.png">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
+<div id="bandeauHorsLigne" class="bandeau-hors-ligne" role="status" hidden>Hors connexion · lecture seule</div>
+
 <!-- Écran de connexion -->
 <main id="ecranConnexion" class="ecran-connexion" hidden>
-  <h1>Repas</h1>
+  <h1>Buon app'</h1>
   <form id="formConnexion">
     <label>E-mail
       <input id="champEmail" type="email" autocomplete="username" autocapitalize="off" required>
@@ -42,8 +50,8 @@
   </header>
 
   <div class="types" role="group" aria-label="Type de jour">
-    <button id="boutonRepos" class="pilule">Repos</button>
-    <button id="boutonEntrainement" class="pilule">Entraînement</button>
+    <button id="boutonRepos" class="pilule ecrit">Repos</button>
+    <button id="boutonEntrainement" class="pilule ecrit">Entraînement</button>
   </div>
 
   <section class="resume" aria-label="Totaux du jour">
@@ -68,7 +76,7 @@
   </section>
 
   <div id="listeMoments" class="liste-moments"></div>
-  <button id="boutonGrignotage" class="bouton-pointille">+ Grignotage</button>
+  <button id="boutonGrignotage" class="bouton-pointille ecrit">+ Grignotage</button>
 </main>
 
 <!-- Écran de la semaine -->
@@ -118,7 +126,7 @@
 <main id="ecranRecettes" hidden>
   <header class="entete-recettes">
     <h1>Recettes</h1>
-    <button id="boutonNouvelleRecette" class="pilule actif">+ Nouvelle</button>
+    <button id="boutonNouvelleRecette" class="pilule actif ecrit">+ Nouvelle</button>
   </header>
   <p class="discret">Communes aux 3. Pour encoder une recette : touche + sur un repas et cherche son nom.</p>
   <ul id="listeRecettes" class="liste-resultats"></ul>
@@ -312,7 +320,7 @@
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
         integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
         crossorigin="anonymous"></script>
-<script src="config.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
