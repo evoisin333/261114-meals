@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="Repas">
 <meta name="color-scheme" content="light dark">
 <title>Repas</title>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -144,6 +144,10 @@
       <span class="visuellement-cache">Rechercher un aliment</span>
       <input id="champRecherche" type="search" placeholder="Rechercher un aliment" autocomplete="off" autocorrect="off" enterkeyhint="search">
     </label>
+    <div class="boutons-ajout">
+      <button id="boutonScanner" class="bouton-secondaire">Scanner un code-barres</button>
+      <button id="boutonNouvelAliment" class="bouton-secondaire">Nouvel aliment</button>
+    </div>
     <p id="titreResultats" class="titre-liste" hidden>Favoris</p>
     <ul id="listeResultats" class="liste-resultats"></ul>
   </div>
@@ -159,7 +163,52 @@
     <p id="apercuAjout" class="apercu"></p>
     <button id="boutonAjouter" class="bouton-principal">Ajouter</button>
     <button id="boutonRetour" class="bouton-secondaire">Choisir un autre aliment</button>
+    <button id="boutonModifierAliment" class="bouton-discret" hidden>Modifier cet aliment</button>
   </div>
+</dialog>
+
+<!-- Scanner un code-barres -->
+<dialog id="feuilleScan" class="feuille">
+  <header class="entete-feuille">
+    <h2>Scanner</h2>
+    <button id="boutonFermerScan" class="bouton-texte">Fermer</button>
+  </header>
+  <video id="videoScan" class="video-scan" playsinline muted></video>
+  <p id="etatScan" class="apercu">Vise le code-barres du paquet</p>
+  <label class="champ-recherche">
+    <span class="visuellement-cache">Code-barres tapé à la main</span>
+    <input id="champCode" type="text" inputmode="numeric" placeholder="Ou tape le code-barres" autocomplete="off">
+  </label>
+  <button id="boutonChercherCode" class="bouton-secondaire">Chercher ce code</button>
+  <p class="discret texte-centre">Données produits : Open Food Facts (licence ODbL)</p>
+</dialog>
+
+<!-- Fiche d'un aliment (nouveau ou modifié) -->
+<dialog id="feuilleAliment" class="feuille">
+  <header class="entete-feuille">
+    <h2 id="titreFiche">Nouvel aliment</h2>
+    <button class="bouton-texte" data-fermer>Fermer</button>
+  </header>
+  <p id="infoFiche" class="info-fiche" hidden></p>
+  <form id="formAliment" class="form-aliment" novalidate>
+    <label class="large">Nom <input id="ficheNom" maxlength="120" autocomplete="off"></label>
+    <div class="large types" role="group" aria-label="Unité">
+      <button type="button" class="pilule" data-unite="g">Pour 100 g</button>
+      <button type="button" class="pilule" data-unite="ml">Pour 100 ml</button>
+    </div>
+    <label>Protéines (g) <input id="ficheProteines" inputmode="decimal" autocomplete="off"></label>
+    <label>Glucides (g) <input id="ficheGlucides" inputmode="decimal" autocomplete="off"></label>
+    <label>Lipides (g) <input id="ficheLipides" inputmode="decimal" autocomplete="off"></label>
+    <label>Fibres (g) <input id="ficheFibres" inputmode="decimal" autocomplete="off"></label>
+    <label class="large">Kcal (vide = calculées) <input id="ficheKcal" inputmode="decimal" autocomplete="off"></label>
+    <label>Portion (facultatif) <input id="fichePortionNom" maxlength="40" placeholder="ex. 1 tranche" autocomplete="off"></label>
+    <label>Quantité de la portion <input id="fichePortionQte" inputmode="decimal" placeholder="ex. 35" autocomplete="off"></label>
+    <label class="large">Code-barres (facultatif) <input id="ficheCode" inputmode="numeric" autocomplete="off"></label>
+    <p id="sourceFiche" class="large discret" hidden>Données produits : Open Food Facts (licence ODbL)</p>
+    <p id="messageFiche" class="large message-erreur" role="alert"></p>
+    <button type="submit" id="boutonEnregistrerAliment" class="large bouton-principal">Enregistrer</button>
+    <button type="button" id="boutonSupprimerAliment" class="large bouton-danger" hidden>Supprimer l'aliment</button>
+  </form>
 </dialog>
 
 <!-- Modifier une ligne du journal -->
@@ -211,7 +260,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"
         integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O"
         crossorigin="anonymous"></script>
-<script src="config.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<!-- Lecteur de codes-barres ZXing (barcode-detector 3.2.3, licence MIT), version figée + empreinte -->
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
+        integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
+        crossorigin="anonymous"></script>
+<script src="config.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

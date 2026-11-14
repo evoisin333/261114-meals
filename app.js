@@ -1,5 +1,5 @@
 // Journal des repas – étapes 3a à 3c : connexion, écran du jour, ajout / modification / suppression,
-// grignotages, cheat meal, « Copier d'hier », favoris, objectifs, semaine
+// grignotages, cheat meal, « Copier d'hier », favoris, objectifs, semaine, scan et fiches d'aliments
 'use strict';
 
 const client = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseCle);
@@ -31,7 +31,11 @@ const etat = {
   momentAjout: null,    // moment où on ajoute
   alimentChoisi: null,
   ligneChoisie: null,
-  ecran: 'jour'         // 'jour' ou 'semaine'
+  ecran: 'jour',        // 'jour' ou 'semaine'
+  moi: null,            // identifiant Supabase du compte connecté
+  ficheAliment: null,   // aliment modifié dans la fiche (null = nouvel aliment)
+  ficheUnite: 'g',
+  ficheSource: 'manuel'
 };
 
 // ---------- Outils ----------
@@ -154,6 +158,8 @@ async function ouvrirAppli() {
   $('barreBas').hidden = false;
   montrerEcran('jour');
   try {
+    const { data } = await client.auth.getSession();
+    etat.moi = data.session ? data.session.user.id : null;
     await Promise.all([chargerAliments(), chargerObjectifs(), chargerPrenom(), chargerFavoris()]);
     await chargerJour();
   } catch (e) {
@@ -175,14 +181,18 @@ async function chargerAliments() {
   const taille = 1000;
   for (let debut = 0; ; debut += taille) {
     const { data, error } = await client.from('aliments')
-      .select('id, nom, unite, proteines, glucides, lipides, fibres, kcal, portion_nom, portion_qte')
+      .select('id, nom, unite, proteines, glucides, lipides, fibres, kcal, portion_nom, portion_qte, code_barres, cree_par')
       .order('nom')
       .range(debut, debut + taille - 1);
     if (error) throw error;
     tous.push(...data);
     if (data.length < taille) break;
   }
-  etat.aliments = tous.map((a) => ({ ...a, recherche: normaliser(a.nom) }));
+  etat.aliments = tous.map(preparerAliment);
+}
+
+function preparerAliment(a) {
+  return { ...a, recherche: normaliser(a.nom) };
 }
 
 async function chargerObjectifs() {
@@ -488,6 +498,7 @@ function choisirAliment(a) {
   $('uniteChoisie').textContent = a.unite;
   $('champQuantite').value = a.portion_qte ? String(a.portion_qte).replace('.', ',') : '100';
   majBoutonFavori();
+  $('boutonModifierAliment').hidden = a.cree_par !== etat.moi;
   $('etapeRecherche').hidden = true;
   $('etapeQuantite').hidden = false;
   majApercu();
@@ -559,6 +570,286 @@ $('boutonAjouter').addEventListener('click', async () => {
   $('feuilleAjout').close();
   etat.ouvert = etat.momentAjout.id;
   chargerJour().catch(erreur);
+});
+
+// ---------- Scanner un code-barres ----------
+
+const lecteurCodes = window.BarcodeDetectionAPI
+  ? new window.BarcodeDetectionAPI.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] })
+  : null;
+let fluxCamera = null;
+let scanEnCours = false;
+
+async function ouvrirScan() {
+  $('champCode').value = '';
+  $('etatScan').textContent = 'Vise le code-barres du paquet';
+  $('feuilleScan').showModal();
+  if (!lecteurCodes) {
+    $('etatScan').textContent = 'Le lecteur de codes-barres ne s\'est pas chargé : tape le code à la main.';
+    return;
+  }
+  try {
+    // Meilleure résolution que celle par défaut (480 × 640) : lecture plus rapide
+    fluxCamera = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+  } catch (e) {
+    $('etatScan').textContent = 'Caméra indisponible (' + e.name + ') : tape le code à la main.';
+    return;
+  }
+  if (!$('feuilleScan').open) return arreterCamera();   // fermé pendant l'autorisation
+  $('videoScan').srcObject = fluxCamera;
+  await $('videoScan').play();
+  scanEnCours = true;
+  lireCode();
+}
+
+// Cherche un code dans l'image toutes les 150 ms
+async function lireCode() {
+  if (!scanEnCours) return;
+  try {
+    const codes = await lecteurCodes.detect($('videoScan'));
+    if (codes.length > 0) {
+      fermerScan();
+      return traiterCode(codes[0].rawValue);
+    }
+  } catch (e) {
+    fermerScan();
+    return erreur(e);
+  }
+  setTimeout(lireCode, 150);
+}
+
+function arreterCamera() {
+  scanEnCours = false;
+  if (fluxCamera) fluxCamera.getTracks().forEach((piste) => piste.stop());
+  fluxCamera = null;
+  $('videoScan').srcObject = null;
+}
+
+function fermerScan() {
+  arreterCamera();
+  if ($('feuilleScan').open) $('feuilleScan').close();
+}
+
+$('boutonScanner').addEventListener('click', ouvrirScan);
+$('boutonFermerScan').addEventListener('click', fermerScan);
+$('feuilleScan').addEventListener('cancel', arreterCamera);
+document.addEventListener('visibilitychange', () => { if (document.hidden && scanEnCours) fermerScan(); });
+
+$('boutonChercherCode').addEventListener('click', () => {
+  const code = $('champCode').value.trim();
+  if (!/^[0-9]{8,14}$/.test(code)) {
+    $('etatScan').textContent = 'Un code-barres, c\'est 8 à 14 chiffres.';
+    return;
+  }
+  fermerScan();
+  traiterCode(code);
+});
+
+// Code lu : aliment déjà dans la base, sinon Open Food Facts, sinon fiche vide
+async function traiterCode(code) {
+  const connu = etat.aliments.find((a) => a.code_barres === code);
+  if (connu) return choisirAliment(connu);
+
+  afficherBandeau('Recherche du produit ' + code + '…');
+  let produit = null;
+  try {
+    const reponse = await fetch('https://world.openfoodfacts.org/api/v2/product/' + code +
+      '.json?fields=product_name,product_name_fr,brands,nutriments,product_quantity_unit');
+    if (reponse.status === 429) {
+      afficherBandeau('Open Food Facts : trop de recherches d\'un coup, réessaie dans une minute.');
+    } else {
+      const donnees = await reponse.json();
+      if (donnees.status === 1) produit = donnees.product;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  ouvrirFiche(null, code, produit);
+}
+
+// ---------- Fiche d'un aliment (nouveau ou modifié) ----------
+
+const CHAMPS_FICHE = [
+  ['ficheProteines', 'proteines', 'proteins_100g'],
+  ['ficheGlucides', 'glucides', 'carbohydrates_100g'],
+  ['ficheLipides', 'lipides', 'fat_100g'],
+  ['ficheFibres', 'fibres', 'fiber_100g']
+];
+
+function enTexte(x) {
+  return x === null || x === undefined || x === '' ? '' : String(Math.round(Number(x) * 10) / 10).replace('.', ',');
+}
+
+// aliment = aliment à modifier (ou null) ; code et produit = résultat d'un scan
+function ouvrirFiche(aliment, code, produit) {
+  etat.ficheAliment = aliment;
+  etat.ficheSource = produit ? 'openfoodfacts' : 'manuel';
+  for (const champ of $('formAliment').querySelectorAll('input')) {
+    champ.value = '';
+    champ.classList.remove('manquant');
+  }
+  $('messageFiche').textContent = '';
+  $('infoFiche').hidden = true;
+  $('sourceFiche').hidden = !produit;
+  $('boutonSupprimerAliment').hidden = !aliment;
+  $('boutonSupprimerAliment').classList.remove('confirmer');
+  $('boutonSupprimerAliment').textContent = 'Supprimer l\'aliment';
+  $('titreFiche').textContent = aliment ? 'Modifier l\'aliment' : 'Nouvel aliment';
+
+  if (aliment) {
+    $('ficheNom').value = aliment.nom;
+    for (const [id, cle] of CHAMPS_FICHE) $(id).value = enTexte(aliment[cle]);
+    $('ficheKcal').value = enTexte(aliment.kcal);
+    $('fichePortionNom').value = aliment.portion_nom || '';
+    $('fichePortionQte').value = enTexte(aliment.portion_qte);
+    $('ficheCode').value = aliment.code_barres || '';
+    choisirUniteFiche(aliment.unite);
+  } else if (produit) {
+    const n = produit.nutriments || {};
+    const nom = (produit.product_name_fr || produit.product_name || '').trim();
+    const marque = (produit.brands || '').split(',')[0].trim();
+    $('ficheNom').value = (marque && nom ? nom + ' (' + marque + ')' : nom || marque).slice(0, 120);
+    const manquants = [];
+    for (const [id, , cleOff] of CHAMPS_FICHE) {
+      const v = n[cleOff];
+      if (v === undefined || v === '' || Number(v) < 0 || Number(v) > 100) {
+        $(id).classList.add('manquant');
+        manquants.push($(id).parentElement.firstChild.textContent.trim());
+      } else {
+        $(id).value = enTexte(v);
+      }
+    }
+    let kcal = n['energy-kcal_100g'];
+    if (kcal === undefined && n['energy-kj_100g'] !== undefined) kcal = Number(n['energy-kj_100g']) / 4.184;
+    $('ficheKcal').value = enTexte(kcal);
+    $('ficheCode').value = code;
+    choisirUniteFiche(produit.product_quantity_unit === 'ml' ? 'ml' : 'g');
+    $('infoFiche').hidden = false;
+    $('infoFiche').textContent = manquants.length
+      ? 'Produit trouvé sur Open Food Facts. À compléter avec l\'étiquette : ' + manquants.join(', ') + '.'
+      : 'Produit trouvé sur Open Food Facts. Vérifie les valeurs avec l\'étiquette avant d\'enregistrer.';
+  } else {
+    $('ficheCode').value = code || '';
+    choisirUniteFiche('g');
+    if (code) {
+      $('infoFiche').hidden = false;
+      $('infoFiche').textContent = 'Produit introuvable sur Open Food Facts : remplis la fiche avec l\'étiquette.';
+    }
+  }
+  $('feuilleAliment').showModal();
+  if (!aliment && !produit) $('ficheNom').focus();
+}
+
+function choisirUniteFiche(unite) {
+  etat.ficheUnite = unite;
+  for (const b of $('formAliment').querySelectorAll('[data-unite]')) {
+    b.classList.toggle('actif', b.dataset.unite === unite);
+    b.setAttribute('aria-pressed', b.dataset.unite === unite);
+  }
+}
+for (const b of $('formAliment').querySelectorAll('[data-unite]')) {
+  b.addEventListener('click', () => choisirUniteFiche(b.dataset.unite));
+}
+for (const champ of $('formAliment').querySelectorAll('input')) {
+  champ.addEventListener('input', () => champ.classList.remove('manquant'));
+}
+
+$('boutonNouvelAliment').addEventListener('click', () => ouvrirFiche(null, '', null));
+$('boutonModifierAliment').addEventListener('click', () => ouvrirFiche(etat.alimentChoisi, '', null));
+
+// Lit un nombre de la fiche : null si vide, NaN si invalide
+function lireNombre(id, max) {
+  const texte = $(id).value.trim().replace(',', '.');
+  if (texte === '') return null;
+  const x = Number(texte);
+  return Number.isFinite(x) && x >= 0 && x <= max ? Math.round(x * 100) / 100 : NaN;
+}
+
+$('formAliment').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const message = (texte) => { $('messageFiche').textContent = texte; };
+  message('');
+
+  const nom = $('ficheNom').value.trim().replace(/\s+/g, ' ');
+  if (!nom) return message('Il faut un nom.');
+  const existant = etat.aliments.find((a) => a.nom.toLowerCase() === nom.toLowerCase() && a !== etat.ficheAliment);
+  if (existant) return message('Un aliment porte déjà ce nom : « ' + existant.nom + ' ».');
+
+  const valeurs = {};
+  for (const [id, cle] of CHAMPS_FICHE) {
+    const x = lireNombre(id, 100);
+    if (x === null || Number.isNaN(x)) {
+      $(id).classList.add('manquant');
+      return message('Protéines, glucides, lipides et fibres : un nombre entre 0 et 100 (0 si l\'étiquette n\'indique rien).');
+    }
+    valeurs[cle] = x;
+  }
+  let kcal = lireNombre('ficheKcal', 900);
+  if (Number.isNaN(kcal)) return message('Kcal : un nombre entre 0 et 900.');
+  // Kcal vides : calculées comme dans l'Excel
+  if (kcal === null) kcal = Math.round(4 * valeurs.proteines + 4 * valeurs.glucides + 9 * valeurs.lipides + 2 * valeurs.fibres);
+
+  const portionNom = $('fichePortionNom').value.trim();
+  const portionQte = lireNombre('fichePortionQte', 5000);
+  if (Number.isNaN(portionQte) || (portionNom === '') !== (portionQte === null) || portionQte === 0) {
+    return message('Portion : remplis le nom et la quantité, ou aucun des deux.');
+  }
+
+  const code = $('ficheCode').value.trim();
+  if (code && !/^[0-9]{8,14}$/.test(code)) return message('Code-barres : 8 à 14 chiffres.');
+  const memeCode = code && etat.aliments.find((a) => a.code_barres === code && a !== etat.ficheAliment);
+  if (memeCode) return message('Ce code-barres est déjà celui de « ' + memeCode.nom + ' ».');
+
+  const ligne = {
+    nom, unite: etat.ficheUnite, ...valeurs, kcal,
+    portion_nom: portionNom || null, portion_qte: portionQte,
+    code_barres: code || null
+  };
+
+  $('boutonEnregistrerAliment').disabled = true;
+  const colonnes = 'id, nom, unite, proteines, glucides, lipides, fibres, kcal, portion_nom, portion_qte, code_barres, cree_par';
+  const reponse = etat.ficheAliment
+    ? await client.from('aliments').update(ligne).eq('id', etat.ficheAliment.id).select(colonnes).single()
+    : await client.from('aliments').insert({ ...ligne, source: etat.ficheSource }).select(colonnes).single();
+  $('boutonEnregistrerAliment').disabled = false;
+  if (reponse.error) {
+    if (reponse.error.code === '23505') return message('Ce nom ou ce code-barres existe déjà dans la base.');
+    return erreur(reponse.error);
+  }
+
+  // Mise à jour de la liste locale, puis on passe à la quantité
+  const aliment = preparerAliment(reponse.data);
+  etat.aliments = etat.aliments.filter((a) => a.id !== aliment.id).concat(aliment)
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  $('feuilleAliment').close();
+  choisirAliment(aliment);
+  afficherBandeau(etat.ficheAliment ? 'Aliment modifié (le journal passé ne change pas)' : 'Aliment ajouté à la base commune');
+});
+
+// Suppression d'un aliment en deux appuis
+$('boutonSupprimerAliment').addEventListener('click', async () => {
+  const bouton = $('boutonSupprimerAliment');
+  if (!bouton.classList.contains('confirmer')) {
+    bouton.classList.add('confirmer');
+    bouton.textContent = 'Confirmer la suppression';
+    return;
+  }
+  const a = etat.ficheAliment;
+  const { error } = await client.from('aliments').delete().eq('id', a.id);
+  if (error) {
+    if (error.code === '23503') return $('messageFiche').textContent = 'Impossible : cet aliment est utilisé dans une recette.';
+    return erreur(error);
+  }
+  etat.aliments = etat.aliments.filter((x) => x.id !== a.id);
+  etat.favoris.delete(a.id);
+  $('feuilleAliment').close();
+  $('etapeQuantite').hidden = true;
+  $('etapeRecherche').hidden = false;
+  afficherResultats();
+  afficherBandeau('Aliment supprimé (les lignes déjà encodées restent)');
 });
 
 // ---------- Modifier / supprimer une ligne ----------

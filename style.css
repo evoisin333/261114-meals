@@ -273,3 +273,16 @@ h1, h2, h3, p { margin: 0; }
 .form-objectifs label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--doux); }
 .form-objectifs input { height: 44px; border-radius: 12px; border: 1px solid var(--bord); background: var(--fond); padding: 0 12px; font-size: 16px; color: var(--texte); }
 #feuilleProfil { overflow-y: auto; }
+
+/* Étape 3d : scan et fiche aliment */
+.boutons-ajout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.boutons-ajout .bouton-secondaire { min-height: 44px; font-size: 14px; }
+.video-scan { width: 100%; max-height: 45vh; background: #000; border-radius: 18px; object-fit: cover; }
+#feuilleAliment { overflow-y: auto; }
+.info-fiche { background: var(--carte); border-radius: 14px; padding: 12px 14px; font-size: 14px; }
+.form-aliment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.form-aliment .large { grid-column: 1 / -1; }
+.form-aliment label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--doux); }
+.form-aliment input { height: 44px; border-radius: 12px; border: 1px solid var(--bord); background: var(--carte); padding: 0 12px; font-size: 16px; color: var(--texte); }
+.form-aliment input.manquant { border: 2px solid var(--cheat); }
+.form-aliment .types { margin: 0; justify-content: flex-start; }
