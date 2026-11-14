@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="Repas">
 <meta name="color-scheme" content="light dark">
 <title>Repas</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -114,6 +114,17 @@
   <p id="texteCheatSemaine" class="discret texte-centre"></p>
 </main>
 
+<!-- Écran des recettes -->
+<main id="ecranRecettes" hidden>
+  <header class="entete-recettes">
+    <h1>Recettes</h1>
+    <button id="boutonNouvelleRecette" class="pilule actif">+ Nouvelle</button>
+  </header>
+  <p class="discret">Communes aux 3. Pour encoder une recette : touche + sur un repas et cherche son nom.</p>
+  <ul id="listeRecettes" class="liste-resultats"></ul>
+  <p id="aucuneRecette" class="discret texte-centre" hidden>Pas encore de recette.</p>
+</main>
+
 <!-- Barre du bas -->
 <nav id="barreBas" class="barre-bas" aria-label="Navigation" hidden>
   <button id="ongletJour" class="onglet actif" aria-current="page">
@@ -121,6 +132,9 @@
   </button>
   <button id="ongletSemaine" class="onglet">
     <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V9M9 19V5M14 19v-7M19 19V8"/></svg>Semaine
+  </button>
+  <button id="ongletRecettes" class="onglet">
+    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M9 9h6M9 13h6"/></svg>Recettes
   </button>
   <button id="ongletProfil" class="onglet">
     <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profil
@@ -155,6 +169,10 @@
     <div class="ligne-titre">
       <h3 id="nomChoisi"></h3>
       <button id="boutonFavori" class="bouton-favori" aria-pressed="false">☆ Favori</button>
+    </div>
+    <div id="choixUniteRecette" class="types" role="group" aria-label="Unité" hidden>
+      <button type="button" class="pilule" data-unite-recette="portion">En portions</button>
+      <button type="button" class="pilule" data-unite-recette="g">En grammes</button>
     </div>
     <label class="champ-quantite">Quantité
       <input id="champQuantite" type="text" inputmode="decimal" autocomplete="off">
@@ -211,6 +229,32 @@
   </form>
 </dialog>
 
+<!-- Recette : création, modification ou lecture -->
+<dialog id="feuilleRecette" class="feuille">
+  <header class="entete-feuille">
+    <h2 id="titreRecette">Nouvelle recette</h2>
+    <button class="bouton-texte" data-fermer>Fermer</button>
+  </header>
+  <p id="infoRecette" class="info-fiche" hidden>Recette créée par quelqu'un d'autre : lecture seule.</p>
+  <form id="formRecette" class="form-aliment" novalidate>
+    <label class="large">Nom <input id="recetteNom" maxlength="120" autocomplete="off"></label>
+    <label>Nombre de portions <input id="recettePortions" inputmode="decimal" autocomplete="off"></label>
+    <label>Poids du plat cuit (g) <input id="recettePoids" inputmode="decimal" autocomplete="off"></label>
+    <p class="large discret">Remplis l'un ou l'autre, ou les deux. Le poids du plat cuit permet d'encoder ta part en grammes (pèse le plat sans la casserole).</p>
+    <h3 class="large">Ingrédients</h3>
+    <ul id="listeIngredients" class="large liste-ingredients"></ul>
+    <label class="large champ-recherche" id="zoneAjoutIngredient">
+      <span class="visuellement-cache">Ajouter un ingrédient</span>
+      <input id="rechercheIngredient" type="search" placeholder="+ Ajouter un ingrédient" autocomplete="off" autocorrect="off">
+    </label>
+    <ul id="resultatsIngredient" class="large liste-resultats"></ul>
+    <p id="totauxRecette" class="large apercu"></p>
+    <p id="messageRecette" class="large message-erreur" role="alert"></p>
+    <button type="submit" id="boutonEnregistrerRecette" class="large bouton-principal">Enregistrer la recette</button>
+    <button type="button" id="boutonSupprimerRecette" class="large bouton-danger" hidden>Supprimer la recette</button>
+  </form>
+</dialog>
+
 <!-- Modifier une ligne du journal -->
 <dialog id="feuilleLigne" class="feuille">
   <header class="entete-feuille">
@@ -264,7 +308,7 @@
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
         integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
         crossorigin="anonymous"></script>
-<script src="config.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

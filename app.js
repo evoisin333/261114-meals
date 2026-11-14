@@ -1,5 +1,5 @@
 // Journal des repas – étapes 3a à 3c : connexion, écran du jour, ajout / modification / suppression,
-// grignotages, cheat meal, « Copier d'hier », favoris, objectifs, semaine, scan et fiches d'aliments
+// grignotages, cheat meal, « Copier d'hier », favoris, objectifs, semaine, scan et fiches d'aliments, recettes
 'use strict';
 
 const client = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseCle);
@@ -26,12 +26,16 @@ const etat = {
   typeJour: 'repos',
   objectifs: {},        // { repos: {...}, entrainement: {...} }
   aliments: [],         // base d'aliments (chargée une fois)
+  recettes: [],         // recettes communes, avec leurs ingrédients et leurs totaux
+  uniteRecette: 'portion', // unité choisie pour encoder une recette
+  recetteOuverte: null, // recette affichée dans la feuille (null = nouvelle)
+  ingredients: [],      // ingrédients en cours d'édition : { aliment, quantite (texte) }
   favoris: new Set(),   // identifiants des aliments favoris
   ouvert: null,         // moment déplié
   momentAjout: null,    // moment où on ajoute
   alimentChoisi: null,
   ligneChoisie: null,
-  ecran: 'jour',        // 'jour' ou 'semaine'
+  ecran: 'jour',        // 'jour', 'semaine' ou 'recettes'
   moi: null,            // identifiant Supabase du compte connecté
   ficheAliment: null,   // aliment modifié dans la fiche (null = nouvel aliment)
   ficheUnite: 'g',
@@ -65,6 +69,10 @@ function dateLisible(jour) {
   return new Intl.DateTimeFormat('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(d);
 }
 
+function arrondi(x) {
+  return Math.round(Number(x) * 100) / 100;
+}
+
 function nombre(x, decimales = 0) {
   return Number(x).toLocaleString('fr-BE', { maximumFractionDigits: decimales });
 }
@@ -73,6 +81,12 @@ function nombre(x, decimales = 0) {
 function lireQuantite(texte) {
   const q = parseFloat(String(texte).replace(',', '.'));
   return Number.isFinite(q) && q > 0 && q <= 5000 ? Math.round(q * 10) / 10 : null;
+}
+
+// Nombre positif tapé (virgule acceptée), jusqu'à max. Renvoie null si invalide.
+function lirePositif(texte, max) {
+  const x = parseFloat(String(texte).replace(',', '.'));
+  return Number.isFinite(x) && x > 0 && x <= max ? Math.round(x * 10) / 10 : null;
 }
 
 // Minuscules, sans accents : pour la recherche
@@ -128,6 +142,7 @@ async function demarrer() {
 function montrerConnexion() {
   $('ecranJour').hidden = true;
   $('ecranSemaine').hidden = true;
+  $('ecranRecettes').hidden = true;
   $('barreBas').hidden = true;
   $('ecranConnexion').hidden = false;
 }
@@ -161,6 +176,7 @@ async function ouvrirAppli() {
     const { data } = await client.auth.getSession();
     etat.moi = data.session ? data.session.user.id : null;
     await Promise.all([chargerAliments(), chargerObjectifs(), chargerPrenom(), chargerFavoris()]);
+    await chargerRecettes();
     await chargerJour();
   } catch (e) {
     erreur(e);
@@ -367,7 +383,7 @@ document.addEventListener('visibilitychange', () => {
   if (auj !== jourAuDepart && etat.jour === jourAuDepart) etat.jour = auj;
   jourAuDepart = auj;
   if (etat.ecran === 'jour') chargerJour().catch(erreur);
-  else chargerSemaine().catch(erreur);
+  else if (etat.ecran === 'semaine') chargerSemaine().catch(erreur);
 });
 
 // ---------- Type de jour (repos par défaut = pas de ligne en base) ----------
@@ -466,13 +482,14 @@ function afficherResultats() {
   const liste = $('listeResultats');
   liste.replaceChildren();
   let trouves;
+  const tout = etat.aliments.concat(etat.recettes);
   if (mots.length === 0) {
     trouves = etat.aliments.filter((a) => etat.favoris.has(a.id));
     $('titreResultats').hidden = trouves.length === 0;
   } else {
     $('titreResultats').hidden = true;
-    const rang = (a) => (etat.favoris.has(a.id) ? 0 : 2) + (a.recherche.startsWith(mots[0]) ? 0 : 1);
-    trouves = etat.aliments
+    const rang = (a) => (a.type !== 'recette' && etat.favoris.has(a.id) ? 0 : 2) + (a.recherche.startsWith(mots[0]) ? 0 : 1);
+    trouves = tout
       .filter((a) => mots.every((m) => a.recherche.includes(m)))
       .sort((a, b) => (rang(a) - rang(b)) || a.nom.localeCompare(b.nom, 'fr'))
       .slice(0, 40);
@@ -482,10 +499,11 @@ function afficherResultats() {
     }
   }
   for (const a of trouves) {
+    const recette = a.type === 'recette';
     liste.append(el('li', {}, [
       el('button', { onclick: () => choisirAliment(a) }, [
-        el('span', { classe: 'nom', texte: (etat.favoris.has(a.id) ? '★ ' : '') + a.nom }),
-        el('span', { classe: 'valeur', texte: nombre(a.kcal) + ' kcal / 100 ' + a.unite })
+        el('span', { classe: 'nom', texte: (recette ? 'Recette · ' : etat.favoris.has(a.id) ? '★ ' : '') + a.nom }),
+        el('span', { classe: 'valeur', texte: recette ? resumeRecette(a) : nombre(a.kcal) + ' kcal / 100 ' + a.unite })
       ])
     ]));
   }
@@ -495,10 +513,17 @@ $('champRecherche').addEventListener('input', afficherResultats);
 function choisirAliment(a) {
   etat.alimentChoisi = a;
   $('nomChoisi').textContent = a.nom;
-  $('uniteChoisie').textContent = a.unite;
-  $('champQuantite').value = a.portion_qte ? String(a.portion_qte).replace('.', ',') : '100';
-  majBoutonFavori();
-  $('boutonModifierAliment').hidden = a.cree_par !== etat.moi;
+  const recette = a.type === 'recette';
+  $('boutonFavori').hidden = recette;
+  $('choixUniteRecette').hidden = !(recette && a.parPortion && a.par100g);
+  if (recette) {
+    choisirUniteRecette(a.parPortion ? 'portion' : 'g');
+  } else {
+    $('uniteChoisie').textContent = a.unite;
+    $('champQuantite').value = a.portion_qte ? String(a.portion_qte).replace('.', ',') : '100';
+    majBoutonFavori();
+  }
+  $('boutonModifierAliment').hidden = recette || a.cree_par !== etat.moi;
   $('etapeRecherche').hidden = true;
   $('etapeQuantite').hidden = false;
   majApercu();
@@ -533,10 +558,34 @@ function apercu(ref, quantite, parPortion) {
     ' · L ' + nombre(ref.lipides * f, 1) + ' · F ' + nombre(ref.fibres * f, 1);
 }
 
+// Valeurs de référence du choix : pour 100 g/ml (aliment, recette en grammes) ou pour 1 portion
+function refChoisie() {
+  const a = etat.alimentChoisi;
+  if (a.type !== 'recette') return { ref: a, unite: a.unite, parPortion: false };
+  return etat.uniteRecette === 'portion'
+    ? { ref: a.parPortion, unite: 'portion', parPortion: true }
+    : { ref: a.par100g, unite: 'g', parPortion: false };
+}
+
+function choisirUniteRecette(unite) {
+  etat.uniteRecette = unite;
+  for (const b of $('choixUniteRecette').querySelectorAll('[data-unite-recette]')) {
+    b.classList.toggle('actif', b.dataset.uniteRecette === unite);
+    b.setAttribute('aria-pressed', b.dataset.uniteRecette === unite);
+  }
+  $('uniteChoisie').textContent = unite === 'portion' ? 'portion(s)' : 'g';
+  $('champQuantite').value = unite === 'portion' ? '1' : '100';
+  majApercu();
+}
+for (const b of $('choixUniteRecette').querySelectorAll('[data-unite-recette]')) {
+  b.addEventListener('click', () => choisirUniteRecette(b.dataset.uniteRecette));
+}
+
 function majApercu() {
   const q = lireQuantite($('champQuantite').value);
+  const { ref, parPortion } = refChoisie();
   $('boutonAjouter').disabled = q === null;
-  $('apercuAjout').textContent = q === null ? 'Quantité entre 0 et 5 000' : apercu(etat.alimentChoisi, q, false);
+  $('apercuAjout').textContent = q === null ? 'Quantité entre 0 et 5 000' : apercu(ref, q, parPortion);
 }
 $('champQuantite').addEventListener('input', majApercu);
 
@@ -551,19 +600,22 @@ $('boutonAjouter').addEventListener('click', async () => {
   const a = etat.alimentChoisi;
   const q = lireQuantite($('champQuantite').value);
   if (!a || q === null) return;
+  const { ref, unite } = refChoisie();
+  const recette = a.type === 'recette';
   $('boutonAjouter').disabled = true;
   const { error } = await client.from('entrees').insert({
     jour: etat.jour,
     moment: etat.momentAjout.id,
     nom: a.nom,
-    aliment_id: a.id,
+    aliment_id: recette ? null : a.id,
+    recette_id: recette ? a.id : null,
     quantite: q,
-    unite: a.unite,
-    proteines_ref: a.proteines,
-    glucides_ref: a.glucides,
-    lipides_ref: a.lipides,
-    fibres_ref: a.fibres,
-    kcal_ref: a.kcal
+    unite,
+    proteines_ref: arrondi(ref.proteines),
+    glucides_ref: arrondi(ref.glucides),
+    lipides_ref: arrondi(ref.lipides),
+    fibres_ref: arrondi(ref.fibres),
+    kcal_ref: Math.round(ref.kcal * 10) / 10
   });
   $('boutonAjouter').disabled = false;
   if (error) return erreur(error);
@@ -824,6 +876,7 @@ $('formAliment').addEventListener('submit', async (ev) => {
   const aliment = preparerAliment(reponse.data);
   etat.aliments = etat.aliments.filter((a) => a.id !== aliment.id).concat(aliment)
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  calculerRecettes();
   $('feuilleAliment').close();
   choisirAliment(aliment);
   afficherBandeau(etat.ficheAliment ? 'Aliment modifié (le journal passé ne change pas)' : 'Aliment ajouté à la base commune');
@@ -850,6 +903,238 @@ $('boutonSupprimerAliment').addEventListener('click', async () => {
   $('etapeRecherche').hidden = false;
   afficherResultats();
   afficherBandeau('Aliment supprimé (les lignes déjà encodées restent)');
+});
+
+// ---------- Recettes ----------
+
+const NUTRIMENTS = ['proteines', 'glucides', 'lipides', 'fibres', 'kcal'];
+
+async function chargerRecettes() {
+  const [recettes, ingredients] = await Promise.all([
+    client.from('recettes').select('id, nom, nb_portions, poids_cuit, cree_par').order('nom'),
+    client.from('recette_ingredients').select('id, recette_id, aliment_id, quantite').limit(10000)
+  ]);
+  for (const r of [recettes, ingredients]) if (r.error) throw r.error;
+  etat.recettes = recettes.data.map((r) => ({
+    ...r, type: 'recette', recherche: normaliser(r.nom),
+    lignes: ingredients.data.filter((i) => i.recette_id === r.id)
+  }));
+  calculerRecettes();
+}
+
+// Totaux d'une recette avec les valeurs actuelles des aliments
+function totauxIngredients(lignes) {
+  const total = { proteines: 0, glucides: 0, lipides: 0, fibres: 0, kcal: 0 };
+  for (const l of lignes) {
+    const a = etat.aliments.find((x) => x.id === l.aliment_id);
+    if (!a) continue;
+    for (const c of NUTRIMENTS) total[c] += a[c] * Number(l.quantite) / 100;
+  }
+  return total;
+}
+
+function diviser(total, diviseur) {
+  return Object.fromEntries(NUTRIMENTS.map((c) => [c, total[c] / diviseur]));
+}
+
+function calculerRecettes() {
+  for (const r of etat.recettes) {
+    r.total = totauxIngredients(r.lignes);
+    r.parPortion = r.nb_portions ? diviser(r.total, Number(r.nb_portions)) : null;
+    r.par100g = r.poids_cuit ? diviser(r.total, Number(r.poids_cuit) / 100) : null;
+  }
+}
+
+function resumeRecette(r) {
+  if (r.parPortion) return nombre(r.parPortion.kcal) + ' kcal / portion';
+  return nombre(r.par100g.kcal) + ' kcal / 100 g';
+}
+
+function afficherRecettes() {
+  $('aucuneRecette').hidden = etat.recettes.length > 0;
+  $('listeRecettes').replaceChildren(...etat.recettes.map((r) =>
+    el('li', {}, [
+      el('button', { onclick: () => ouvrirRecette(r) }, [
+        el('span', { classe: 'nom', texte: r.nom }),
+        el('span', { classe: 'valeur', texte: resumeRecette(r) })
+      ])
+    ])
+  ));
+}
+
+function ouvrirRecette(r) {
+  etat.recetteOuverte = r;
+  const lecture = r !== null && r.cree_par !== etat.moi;
+  $('titreRecette').textContent = r ? (lecture ? 'Recette' : 'Modifier la recette') : 'Nouvelle recette';
+  $('infoRecette').hidden = !lecture;
+  $('recetteNom').value = r ? r.nom : '';
+  $('recettePortions').value = r ? enTexte(r.nb_portions) : '';
+  $('recettePoids').value = r ? enTexte(r.poids_cuit) : '';
+  etat.ingredients = r
+    ? r.lignes.map((l) => ({ aliment: etat.aliments.find((a) => a.id === l.aliment_id), quantite: enTexte(l.quantite) }))
+        .filter((i) => i.aliment)
+    : [];
+  for (const champ of $('formRecette').querySelectorAll('input')) champ.disabled = lecture;
+  $('zoneAjoutIngredient').hidden = lecture;
+  $('boutonEnregistrerRecette').hidden = lecture;
+  $('boutonSupprimerRecette').hidden = !r || lecture;
+  $('boutonSupprimerRecette').classList.remove('confirmer');
+  $('boutonSupprimerRecette').textContent = 'Supprimer la recette';
+  $('rechercheIngredient').value = '';
+  $('resultatsIngredient').replaceChildren();
+  $('messageRecette').textContent = '';
+  afficherIngredients(lecture);
+  $('feuilleRecette').showModal();
+  if (!r) $('recetteNom').focus();
+}
+
+$('boutonNouvelleRecette').addEventListener('click', () => ouvrirRecette(null));
+
+function afficherIngredients(lecture) {
+  $('listeIngredients').replaceChildren(...etat.ingredients.map((ing, i) => {
+    const champ = el('input', { inputmode: 'decimal', autocomplete: 'off', 'aria-label': 'Quantité de ' + ing.aliment.nom });
+    champ.value = ing.quantite;
+    champ.disabled = lecture;
+    champ.addEventListener('input', () => { ing.quantite = champ.value; majTotauxRecette(); });
+    return el('li', {}, [
+      el('span', { classe: 'nom', texte: ing.aliment.nom }),
+      champ,
+      el('span', { classe: 'unite', texte: ing.aliment.unite }),
+      lecture ? null : el('button', {
+        type: 'button', 'aria-label': 'Retirer ' + ing.aliment.nom, texte: '×',
+        onclick: () => { etat.ingredients.splice(i, 1); afficherIngredients(false); }
+      })
+    ]);
+  }));
+  majTotauxRecette();
+}
+
+function majTotauxRecette() {
+  const lignes = etat.ingredients.map((i) => ({ aliment_id: i.aliment.id, quantite: lirePositif(i.quantite, 50000) || 0 }));
+  const total = totauxIngredients(lignes);
+  const portions = lirePositif($('recettePortions').value, 1000);
+  const poids = lirePositif($('recettePoids').value, 50000);
+  let texte = 'Total : ' + nombre(total.kcal) + ' kcal';
+  if (portions) texte += ' · par portion : ' + nombre(total.kcal / portions) + ' kcal';
+  if (poids) texte += ' · pour 100 g : ' + nombre(total.kcal / poids * 100) + ' kcal';
+  $('totauxRecette').textContent = etat.ingredients.length ? texte : 'Pas encore d\'ingrédient';
+}
+$('recettePortions').addEventListener('input', majTotauxRecette);
+$('recettePoids').addEventListener('input', majTotauxRecette);
+
+// Recherche d'un ingrédient (aliments seulement)
+$('rechercheIngredient').addEventListener('input', () => {
+  const mots = normaliser($('rechercheIngredient').value).split(/\s+/).filter(Boolean);
+  const liste = $('resultatsIngredient');
+  liste.replaceChildren();
+  if (mots.length === 0) return;
+  const trouves = etat.aliments
+    .filter((a) => mots.every((m) => a.recherche.includes(m)))
+    .sort((a, b) => (b.recherche.startsWith(mots[0]) - a.recherche.startsWith(mots[0])) || a.nom.localeCompare(b.nom, 'fr'))
+    .slice(0, 20);
+  for (const a of trouves) {
+    liste.append(el('li', {}, [
+      el('button', { type: 'button', onclick: () => ajouterIngredient(a) }, [
+        el('span', { classe: 'nom', texte: a.nom }),
+        el('span', { classe: 'valeur', texte: nombre(a.kcal) + ' kcal / 100 ' + a.unite })
+      ])
+    ]));
+  }
+});
+
+function ajouterIngredient(a) {
+  $('rechercheIngredient').value = '';
+  $('resultatsIngredient').replaceChildren();
+  const deja = etat.ingredients.find((i) => i.aliment.id === a.id);
+  if (!deja) etat.ingredients.push({ aliment: a, quantite: a.portion_qte ? enTexte(a.portion_qte) : '100' });
+  afficherIngredients(false);
+  // On place le curseur sur la quantité de cet ingrédient
+  const index = etat.ingredients.findIndex((i) => i.aliment.id === a.id);
+  const champ = $('listeIngredients').querySelectorAll('input')[index];
+  champ.focus();
+  champ.select();
+}
+
+$('formRecette').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const message = (texte) => { $('messageRecette').textContent = texte; };
+  message('');
+  const r = etat.recetteOuverte;
+
+  const nom = $('recetteNom').value.trim().replace(/\s+/g, ' ');
+  if (!nom) return message('Il faut un nom.');
+  const existante = etat.recettes.find((x) => x.nom.toLowerCase() === nom.toLowerCase() && x !== r);
+  if (existante) return message('Une recette porte déjà ce nom.');
+  const portionsTexte = $('recettePortions').value.trim();
+  const poidsTexte = $('recettePoids').value.trim();
+  const nb_portions = portionsTexte ? lirePositif(portionsTexte, 1000) : null;
+  const poids_cuit = poidsTexte ? lirePositif(poidsTexte, 50000) : null;
+  if ((portionsTexte && nb_portions === null) || (poidsTexte && poids_cuit === null)) {
+    return message('Portions et poids : des nombres plus grands que 0.');
+  }
+  if (nb_portions === null && poids_cuit === null) return message('Remplis le nombre de portions, le poids du plat cuit, ou les deux.');
+  if (etat.ingredients.length === 0) return message('Ajoute au moins un ingrédient.');
+  const lignes = [];
+  for (const i of etat.ingredients) {
+    const q = lirePositif(i.quantite, 50000);
+    if (q === null) return message('Quantité invalide pour « ' + i.aliment.nom + ' ».');
+    lignes.push({ aliment_id: i.aliment.id, quantite: q });
+  }
+
+  $('boutonEnregistrerRecette').disabled = true;
+  try {
+    // 1) La recette
+    let id;
+    if (r) {
+      const { error } = await client.from('recettes').update({ nom, nb_portions, poids_cuit }).eq('id', r.id);
+      if (error) throw error;
+      id = r.id;
+    } else {
+      const { data, error } = await client.from('recettes').insert({ nom, nb_portions, poids_cuit }).select('id').single();
+      if (error) throw error;
+      id = data.id;
+    }
+    // 2) Les ingrédients : on retire, on modifie et on ajoute seulement ce qui a changé
+    const avant = r ? r.lignes : [];
+    const aRetirer = avant.filter((l) => !lignes.some((n) => n.aliment_id === l.aliment_id));
+    if (aRetirer.length) {
+      const { error } = await client.from('recette_ingredients').delete().in('id', aRetirer.map((l) => l.id));
+      if (error) throw error;
+    }
+    for (const n of lignes) {
+      const ancien = avant.find((l) => l.aliment_id === n.aliment_id);
+      if (ancien && Number(ancien.quantite) === n.quantite) continue;
+      const { error } = ancien
+        ? await client.from('recette_ingredients').update({ quantite: n.quantite }).eq('id', ancien.id)
+        : await client.from('recette_ingredients').insert({ recette_id: id, ...n });
+      if (error) throw error;
+    }
+    await chargerRecettes();
+    afficherRecettes();
+    $('feuilleRecette').close();
+    afficherBandeau(r ? 'Recette modifiée (le journal passé ne change pas)' : 'Recette ajoutée');
+  } catch (e) {
+    if (e.code === '23505') message('Une recette porte déjà ce nom.');
+    else erreur(e);
+  } finally {
+    $('boutonEnregistrerRecette').disabled = false;
+  }
+});
+
+// Suppression d'une recette en deux appuis (les lignes déjà encodées restent)
+$('boutonSupprimerRecette').addEventListener('click', async () => {
+  const bouton = $('boutonSupprimerRecette');
+  if (!bouton.classList.contains('confirmer')) {
+    bouton.classList.add('confirmer');
+    bouton.textContent = 'Confirmer la suppression';
+    return;
+  }
+  const { error } = await client.from('recettes').delete().eq('id', etat.recetteOuverte.id);
+  if (error) return erreur(error);
+  await chargerRecettes().catch(erreur);
+  afficherRecettes();
+  $('feuilleRecette').close();
+  afficherBandeau('Recette supprimée (les lignes déjà encodées restent)');
 });
 
 // ---------- Modifier / supprimer une ligne ----------
@@ -903,7 +1188,8 @@ function montrerEcran(ecran) {
   etat.ecran = ecran;
   $('ecranJour').hidden = ecran !== 'jour';
   $('ecranSemaine').hidden = ecran !== 'semaine';
-  for (const [id, nom] of [['ongletJour', 'jour'], ['ongletSemaine', 'semaine']]) {
+  $('ecranRecettes').hidden = ecran !== 'recettes';
+  for (const [id, nom] of [['ongletJour', 'jour'], ['ongletSemaine', 'semaine'], ['ongletRecettes', 'recettes']]) {
     $(id).classList.toggle('actif', ecran === nom);
     if (ecran === nom) $(id).setAttribute('aria-current', 'page');
     else $(id).removeAttribute('aria-current');
@@ -918,6 +1204,10 @@ $('ongletJour').addEventListener('click', () => {
 $('ongletSemaine').addEventListener('click', () => {
   montrerEcran('semaine');
   chargerSemaine().catch(erreur);
+});
+$('ongletRecettes').addEventListener('click', () => {
+  montrerEcran('recettes');
+  chargerRecettes().then(afficherRecettes).catch(erreur);
 });
 $('ongletProfil').addEventListener('click', ouvrirProfil);
 
