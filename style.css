@@ -19,6 +19,8 @@
   --quatre-heures: #F2D27A;
   --souper: #92B4E8;
   --grignotage: #D63F8C;
+  --gris: #AEAEB2;
+  --cheat: #D9822B;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -37,6 +39,7 @@
     --l: #C3A6FF;
     --f: #8FCBA2;
     --danger: #FF6B6B;
+    --gris: #5A5B60;
   }
 }
 
@@ -188,3 +191,29 @@ h1, h2, h3, p { margin: 0; }
   position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
   background: var(--texte); color: var(--fond); padding: 14px 16px; border-radius: 14px; font-size: 14px; z-index: 10;
 }
+
+/* Étape 3b : grignotages, cheat meal, copier, favoris */
+.resume.partiel .arc { stroke: var(--gris); }
+.ligne-partiel { font-weight: 700; font-size: 14px; }
+#ligneGrignotage { font-size: 14px; }
+.moment.cheat { outline: 2px dashed var(--cheat); outline-offset: -2px; }
+.moment.grignotage .moment-entete { min-height: 54px; }
+.moment.grignotage .moment-noms strong { font-size: 15px; }
+.actions-moment { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px 14px 38px; }
+.actions-moment button {
+  height: 36px; padding: 0 14px; border-radius: 18px; border: none; background: var(--carte2); font-size: 13px; font-weight: 600;
+}
+.actions-moment button:disabled { opacity: 0.4; }
+.texte-cheat { padding: 0 16px 0 38px; color: var(--doux); font-size: 14px; }
+.bouton-pointille {
+  width: 100%; min-height: 48px; margin-top: 10px; border-radius: 24px; border: 2px dashed var(--bord);
+  background: none; font-size: 15px; font-weight: 600;
+}
+.choix-moment { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.choix-moment .pilule { padding: 0 4px; font-size: 13px; height: 40px; }
+.titre-liste { margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--doux); text-transform: uppercase; letter-spacing: 0.5px; }
+.ligne-titre { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bouton-favori {
+  flex: 0 0 auto; height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--bord); background: none; font-size: 14px; font-weight: 600;
+}
+.bouton-favori[aria-pressed="true"] { background: var(--texte); color: var(--fond); border-color: var(--texte); }

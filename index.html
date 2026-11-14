@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="Repas">
 <meta name="color-scheme" content="light dark">
 <title>Repas</title>
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 
@@ -63,9 +63,12 @@
       <div class="macro"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="piste" cx="32" cy="32" r="26"/><circle id="arcLipides" class="arc arc-l" cx="32" cy="32" r="26"/></svg><strong id="texteLipides">0 g</strong><span id="legendeLipides" class="discret">Lip.</span></div>
       <div class="macro"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="piste" cx="32" cy="32" r="26"/><circle id="arcFibres" class="arc arc-f" cx="32" cy="32" r="26"/></svg><strong id="texteFibres">0 g</strong><span class="discret">Fibres</span></div>
     </div>
+    <p id="ligneGrignotage" class="discret" hidden></p>
+    <p id="lignePartiel" class="ligne-partiel" hidden>Jour partiel : cheat meal non compté</p>
   </section>
 
   <div id="listeMoments" class="liste-moments"></div>
+  <button id="boutonGrignotage" class="bouton-pointille">+ Grignotage</button>
 
   <button id="boutonProfil" class="bouton-discret">Profil et déconnexion</button>
 </main>
@@ -76,15 +79,25 @@
     <h2 id="titreAjout">Ajouter</h2>
     <button class="bouton-texte" data-fermer>Fermer</button>
   </header>
+  <div id="choixMoment" class="choix-moment" role="group" aria-label="Moment du grignotage" hidden>
+    <button class="pilule" data-moment="grignotage_matin">Matin</button>
+    <button class="pilule" data-moment="grignotage_apres_midi">Après-midi</button>
+    <button class="pilule" data-moment="grignotage_apres_gouter">Après goûter</button>
+    <button class="pilule" data-moment="grignotage_soir">Soir</button>
+  </div>
   <div id="etapeRecherche">
     <label class="champ-recherche">
       <span class="visuellement-cache">Rechercher un aliment</span>
       <input id="champRecherche" type="search" placeholder="Rechercher un aliment" autocomplete="off" autocorrect="off" enterkeyhint="search">
     </label>
+    <p id="titreResultats" class="titre-liste" hidden>Favoris</p>
     <ul id="listeResultats" class="liste-resultats"></ul>
   </div>
   <div id="etapeQuantite" hidden>
-    <h3 id="nomChoisi"></h3>
+    <div class="ligne-titre">
+      <h3 id="nomChoisi"></h3>
+      <button id="boutonFavori" class="bouton-favori" aria-pressed="false">☆ Favori</button>
+    </div>
     <label class="champ-quantite">Quantité
       <input id="champQuantite" type="text" inputmode="decimal" autocomplete="off">
       <span id="uniteChoisie">g</span>
@@ -125,7 +138,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"
         integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O"
         crossorigin="anonymous"></script>
-<script src="config.js?v=1"></script>
-<script src="app.js?v=1"></script>
+<script src="config.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
