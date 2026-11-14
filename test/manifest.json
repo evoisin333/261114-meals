@@ -1,0 +1,9 @@
+{
+  "name": "Test scan",
+  "short_name": "Test scan",
+  "start_url": "scan.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F2F4",
+  "theme_color": "#F2F2F4"
+}
