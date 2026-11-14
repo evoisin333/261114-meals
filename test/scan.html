@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Test scan</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 16px; padding-top: max(16px, env(safe-area-inset-top)); background: #F2F2F4; color: #1C1C1E; }
+  @media (prefers-color-scheme: dark) { body { background: #0F1012; color: #F2F2F4; } }
+  button { font: inherit; font-weight: 600; height: 48px; padding: 0 18px; border-radius: 24px; border: none; background: #2E5AAC; color: #FFFFFF; margin: 4px 0; }
+  video { width: 100%; max-height: 50vh; background: #000; border-radius: 16px; display: none; object-fit: cover; }
+  input { font: inherit; font-size: 16px; height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #C7C7CC; width: 100%; box-sizing: border-box; }
+  pre { white-space: pre-wrap; word-break: break-word; font-size: 13px; background: rgba(127, 127, 127, 0.15); padding: 12px; border-radius: 12px; }
+</style>
+</head>
+<body>
+<h1>Test scan</h1>
+
+<button id="boutonCamera">Démarrer la caméra</button>
+<video id="video" playsinline muted></video>
+
+<p><label for="champCode">Ou tape un code-barres :</label></p>
+<input id="champCode" inputmode="numeric" autocomplete="off">
+<button id="boutonChercher">Chercher sur Open Food Facts</button>
+
+<h2>Résultat</h2>
+<pre id="resultat">—</pre>
+<p style="font-size: 13px">Données produits : Open Food Facts (licence ODbL)</p>
+
+<h2>Journal</h2>
+<pre id="journal"></pre>
+
+<!-- Lecteur de code-barres ZXing (barcode-detector 3.2.3, licence MIT), version figée + empreinte -->
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
+        integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
+        crossorigin="anonymous"></script>
+<script>
+// Test : caméra + lecture du code-barres (ZXing) + recherche sur Open Food Facts
+const journal = document.getElementById('journal');
+const resultat = document.getElementById('resultat');
+const video = document.getElementById('video');
+const champCode = document.getElementById('champCode');
+const debut = performance.now();
+let flux = null;      // flux de la caméra
+let enCours = false;  // lecture en cours ?
+
+// Ajoute une ligne au journal, avec le temps écoulé
+function noter(texte) {
+  const secondes = ((performance.now() - debut) / 1000).toFixed(1);
+  journal.textContent += secondes + ' s · ' + texte + '\n';
+}
+
+noter('Navigateur : ' + navigator.userAgent);
+noter('Appli installée (plein écran) : ' + (navigator.standalone === true ? 'oui' : 'non'));
+noter('Détection native du navigateur : ' + ('BarcodeDetector' in window ? 'présente' : 'absente'));
+
+const api = window.BarcodeDetectionAPI;
+let lecteur = null;
+if (!api) {
+  noter('ERREUR : la bibliothèque ZXing ne s\'est pas chargée');
+} else {
+  lecteur = new api.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+  // On charge le moteur (fichier .wasm) tout de suite pour mesurer le temps
+  const t0 = performance.now();
+  api.prepareZXingModule({ fireImmediately: true })
+    .then(() => noter('Moteur ZXing ' + api.ZXING_WASM_VERSION + ' prêt en ' + Math.round(performance.now() - t0) + ' ms'))
+    .catch((e) => noter('ERREUR moteur ZXing : ' + e.message));
+}
+
+document.getElementById('boutonCamera').addEventListener('click', demarrerCamera);
+document.getElementById('boutonChercher').addEventListener('click', () => {
+  const code = champCode.value.trim();
+  if (/^\d{8,14}$/.test(code)) chercherProduit(code);
+  else resultat.textContent = 'Code invalide : il faut 8 à 14 chiffres.';
+});
+
+async function demarrerCamera() {
+  if (enCours || !lecteur) return;
+  try {
+    flux = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch (e) {
+    noter('ERREUR caméra : ' + e.name + ' – ' + e.message);
+    return;
+  }
+  video.srcObject = flux;
+  video.style.display = 'block';
+  await video.play();
+  noter('Caméra OK (' + video.videoWidth + ' × ' + video.videoHeight + ')');
+  enCours = true;
+  lire();
+}
+
+// Cherche un code dans l'image toutes les 150 ms
+async function lire() {
+  if (!enCours) return;
+  try {
+    const codes = await lecteur.detect(video);
+    if (codes.length > 0) {
+      const code = codes[0].rawValue;
+      noter('Code lu : ' + code + ' (' + codes[0].format + ')');
+      arreterCamera();
+      champCode.value = code;
+      chercherProduit(code);
+      return;
+    }
+  } catch (e) {
+    noter('ERREUR lecture : ' + e.name + ' – ' + e.message);
+    arreterCamera();
+    return;
+  }
+  setTimeout(lire, 150);
+}
+
+function arreterCamera() {
+  enCours = false;
+  if (flux) flux.getTracks().forEach((piste) => piste.stop());
+  flux = null;
+  video.style.display = 'none';
+}
+
+// Coupe la caméra quand l'appli passe en arrière-plan
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && enCours) {
+    arreterCamera();
+    noter('Caméra coupée (arrière-plan)');
+  }
+});
+
+async function chercherProduit(code) {
+  resultat.textContent = 'Recherche…';
+  const url = 'https://world.openfoodfacts.org/api/v2/product/' + code + '.json?fields=product_name,brands,nutriments';
+  try {
+    const reponse = await fetch(url);
+    noter('Open Food Facts : HTTP ' + reponse.status);
+    if (reponse.status === 429) {
+      resultat.textContent = 'Trop de recherches d\'un coup : attends une minute.';
+      return;
+    }
+    const donnees = await reponse.json();
+    if (donnees.status !== 1) {
+      resultat.textContent = 'Produit introuvable sur Open Food Facts.';
+      return;
+    }
+    const produit = donnees.product;
+    const n = produit.nutriments || {};
+    const valeur = (cle) => (n[cle] === undefined ? 'manquant' : n[cle]);
+    resultat.textContent =
+      (produit.product_name || '(sans nom)') + ' · ' + (produit.brands || '(sans marque)') + '\n' +
+      'Pour 100 g ou 100 ml :\n' +
+      '  Protéines : ' + valeur('proteins_100g') + '\n' +
+      '  Glucides : ' + valeur('carbohydrates_100g') + '\n' +
+      '  Lipides : ' + valeur('fat_100g') + '\n' +
+      '  Fibres : ' + valeur('fiber_100g') + '\n' +
+      '  Kcal : ' + valeur('energy-kcal_100g');
+  } catch (e) {
+    noter('ERREUR Open Food Facts : ' + e.name + ' – ' + e.message);
+    resultat.textContent = 'Échec de la recherche (voir le journal).';
+  }
+}
+</script>
+</body>
+</html>
