@@ -20,8 +20,15 @@ Scripts à coller dans l'ordre dans Supabase › SQL Editor. Chacun peut être r
 4. `sql/04_aliments.sql` : les 364 aliments de départ, repris de l'Excel.
 5. `sql/05_test_securite.sql` : vérifie les droits de chaque compte. Toutes les lignes doivent afficher `ok = true`.
 
+## 📱 Appli
+
+- `index.html`, `style.css`, `app.js` : l'appli.
+- `config.js` : adresse du projet Supabase et clé **publishable** (publique). Jamais la clé secrète.
+- À chaque mise à jour de `style.css`, `app.js` ou `config.js`, augmenter le numéro `?v=` dans `index.html`, sinon l'iPhone garde l'ancienne version.
+
 ## 📦 Bibliothèques (versions figées)
 
+- **supabase-js 2.119.0** (licence MIT), depuis jsDelivr avec une empreinte (`integrity`).
 - **barcode-detector 3.2.3** (licence MIT) : lecture des codes-barres avec ZXing. Chargé depuis jsDelivr avec une empreinte (`integrity`). Il va chercher lui-même le moteur `zxing-wasm 3.1.6` sur jsDelivr.
 
 ## 🥫 Données

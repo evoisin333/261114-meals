@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Repas">
+<meta name="color-scheme" content="light dark">
+<title>Repas</title>
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<!-- Écran de connexion -->
+<main id="ecranConnexion" class="ecran-connexion" hidden>
+  <h1>Repas</h1>
+  <form id="formConnexion">
+    <label>E-mail
+      <input id="champEmail" type="email" autocomplete="username" autocapitalize="off" required>
+    </label>
+    <label>Mot de passe
+      <input id="champMotDePasse" type="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="bouton-principal">Se connecter</button>
+    <p id="messageConnexion" class="message-erreur" role="alert"></p>
+  </form>
+</main>
+
+<!-- Écran du jour -->
+<main id="ecranJour" hidden>
+  <header class="entete">
+    <button id="boutonVeille" class="bouton-rond" aria-label="Jour précédent">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button id="boutonDate" class="titre-date" aria-label="Revenir à aujourd'hui">
+      <span id="texteSurtitre"></span>
+      <strong id="texteDate"></strong>
+    </button>
+    <button id="boutonLendemain" class="bouton-rond" aria-label="Jour suivant">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </header>
+
+  <div class="types" role="group" aria-label="Type de jour">
+    <button id="boutonRepos" class="pilule">Repos</button>
+    <button id="boutonEntrainement" class="pilule">Entraînement</button>
+  </div>
+
+  <section class="resume" aria-label="Totaux du jour">
+    <div class="anneau-kcal">
+      <svg viewBox="0 0 180 180" aria-hidden="true">
+        <circle class="piste" cx="90" cy="90" r="70"/>
+        <circle id="arcKcal" class="arc arc-kcal" cx="90" cy="90" r="70"/>
+      </svg>
+      <div class="centre">
+        <span id="texteKcal" class="grand-nombre">0</span>
+        <span id="texteObjectifKcal" class="discret">kcal</span>
+      </div>
+    </div>
+    <div class="petits-anneaux">
+      <div class="macro"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="piste" cx="32" cy="32" r="26"/><circle id="arcProteines" class="arc arc-p" cx="32" cy="32" r="26"/></svg><strong id="texteProteines">0 g</strong><span id="legendeProteines" class="discret">Prot.</span></div>
+      <div class="macro"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="piste" cx="32" cy="32" r="26"/><circle id="arcGlucides" class="arc arc-g" cx="32" cy="32" r="26"/></svg><strong id="texteGlucides">0 g</strong><span id="legendeGlucides" class="discret">Gluc.</span></div>
+      <div class="macro"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="piste" cx="32" cy="32" r="26"/><circle id="arcLipides" class="arc arc-l" cx="32" cy="32" r="26"/></svg><strong id="texteLipides">0 g</strong><span id="legendeLipides" class="discret">Lip.</span></div>
+      <div class="macro"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="piste" cx="32" cy="32" r="26"/><circle id="arcFibres" class="arc arc-f" cx="32" cy="32" r="26"/></svg><strong id="texteFibres">0 g</strong><span class="discret">Fibres</span></div>
+    </div>
+  </section>
+
+  <div id="listeMoments" class="liste-moments"></div>
+
+  <button id="boutonProfil" class="bouton-discret">Profil et déconnexion</button>
+</main>
+
+<!-- Ajouter un aliment -->
+<dialog id="feuilleAjout" class="feuille">
+  <header class="entete-feuille">
+    <h2 id="titreAjout">Ajouter</h2>
+    <button class="bouton-texte" data-fermer>Fermer</button>
+  </header>
+  <div id="etapeRecherche">
+    <label class="champ-recherche">
+      <span class="visuellement-cache">Rechercher un aliment</span>
+      <input id="champRecherche" type="search" placeholder="Rechercher un aliment" autocomplete="off" autocorrect="off" enterkeyhint="search">
+    </label>
+    <ul id="listeResultats" class="liste-resultats"></ul>
+  </div>
+  <div id="etapeQuantite" hidden>
+    <h3 id="nomChoisi"></h3>
+    <label class="champ-quantite">Quantité
+      <input id="champQuantite" type="text" inputmode="decimal" autocomplete="off">
+      <span id="uniteChoisie">g</span>
+    </label>
+    <p id="apercuAjout" class="apercu"></p>
+    <button id="boutonAjouter" class="bouton-principal">Ajouter</button>
+    <button id="boutonRetour" class="bouton-secondaire">Choisir un autre aliment</button>
+  </div>
+</dialog>
+
+<!-- Modifier une ligne du journal -->
+<dialog id="feuilleLigne" class="feuille">
+  <header class="entete-feuille">
+    <h2 id="titreLigne"></h2>
+    <button class="bouton-texte" data-fermer>Fermer</button>
+  </header>
+  <label class="champ-quantite">Quantité
+    <input id="champQuantiteLigne" type="text" inputmode="decimal" autocomplete="off">
+    <span id="uniteLigne">g</span>
+  </label>
+  <p id="apercuLigne" class="apercu"></p>
+  <button id="boutonEnregistrerLigne" class="bouton-principal">Enregistrer</button>
+  <button id="boutonSupprimerLigne" class="bouton-danger">Supprimer</button>
+</dialog>
+
+<!-- Profil -->
+<dialog id="feuilleProfil" class="feuille">
+  <header class="entete-feuille">
+    <h2 id="titreProfil">Profil</h2>
+    <button class="bouton-texte" data-fermer>Fermer</button>
+  </header>
+  <button id="boutonDeconnexion" class="bouton-secondaire">Se déconnecter de ce téléphone</button>
+</dialog>
+
+<div id="bandeau" class="bandeau" role="status" hidden></div>
+
+<!-- supabase-js 2.119.0 (licence MIT), version figée + empreinte -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"
+        integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O"
+        crossorigin="anonymous"></script>
+<script src="config.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+/* Couleurs : clair par défaut, sombre selon le réglage du téléphone */
+:root {
+  --fond: #F2F2F4;
+  --carte: #FFFFFF;
+  --carte2: #ECECF0;
+  --texte: #1C1C1E;
+  --doux: #5F5F66;
+  --piste: #E3E3E8;
+  --ligne: #F0F0F3;
+  --bord: #C7C7CC;
+  --anneau: #1C1C1E;
+  --p: #2E5AAC;
+  --g: #D9822B;
+  --l: #7A5BB5;
+  --f: #2F7A47;
+  --danger: #C62828;
+  --dejeuner: #F4B392;
+  --diner: #8FCBA2;
+  --quatre-heures: #F2D27A;
+  --souper: #92B4E8;
+  --grignotage: #D63F8C;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #0F1012;
+    --carte: #1B1C1F;
+    --carte2: #26272B;
+    --texte: #F2F2F4;
+    --doux: #A1A1AA;
+    --piste: #26272B;
+    --ligne: #26272B;
+    --bord: #3A3B40;
+    --anneau: #F2F2F4;
+    --p: #7FA8FF;
+    --g: #FFB25B;
+    --l: #C3A6FF;
+    --f: #8FCBA2;
+    --danger: #FF6B6B;
+  }
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: -apple-system, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, p { margin: 0; }
+.discret { color: var(--doux); font-size: 13px; }
+.visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Boutons */
+.bouton-principal, .bouton-secondaire, .bouton-danger {
+  width: 100%; min-height: 50px; border: none; border-radius: 25px; font-weight: 700; font-size: 16px;
+}
+.bouton-principal { background: var(--texte); color: var(--fond); }
+.bouton-secondaire { background: var(--carte2); }
+.bouton-danger { background: transparent; color: var(--danger); }
+.bouton-danger.confirmer { background: var(--danger); color: #FFFFFF; }
+.bouton-principal:disabled { opacity: 0.4; }
+.bouton-rond {
+  width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--carte);
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+}
+.bouton-rond svg, .bouton-plus svg { width: 18px; height: 18px; fill: none; stroke: var(--texte); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.bouton-texte { border: none; background: none; font-weight: 600; min-height: 44px; padding: 0 4px; }
+.bouton-discret { display: block; margin: 28px auto 0; border: none; background: none; color: var(--doux); font-size: 14px; min-height: 44px; }
+.pilule {
+  height: 36px; padding: 0 16px; border-radius: 18px; border: 1px solid var(--bord);
+  background: transparent; font-size: 14px; font-weight: 700;
+}
+.pilule.actif { background: var(--texte); color: var(--fond); border-color: var(--texte); }
+
+/* Connexion */
+.ecran-connexion { max-width: 420px; margin: 15vh auto 0; }
+.ecran-connexion h1 { font-size: 34px; margin-bottom: 24px; }
+.ecran-connexion form { display: flex; flex-direction: column; gap: 14px; }
+.ecran-connexion label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 14px; }
+.ecran-connexion input {
+  height: 48px; border-radius: 14px; border: 1px solid var(--bord); background: var(--carte); padding: 0 14px; font-size: 16px;
+}
+.message-erreur { color: var(--danger); min-height: 20px; font-size: 14px; }
+
+/* En-tête du jour */
+.entete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.titre-date {
+  border: none; background: none; display: flex; flex-direction: column; align-items: center; min-height: 44px;
+}
+.titre-date span { font-size: 13px; font-weight: 600; color: var(--doux); }
+.titre-date strong { font-size: 20px; }
+.types { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+
+/* Anneaux */
+.resume { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.anneau-kcal { position: relative; width: 180px; height: 180px; }
+.anneau-kcal svg, .macro svg { transform: rotate(-90deg); }
+.piste, .arc { fill: none; }
+.anneau-kcal .piste, .anneau-kcal .arc { stroke-width: 14; }
+.macro .piste, .macro .arc { stroke-width: 7; }
+.piste { stroke: var(--piste); }
+.arc { stroke-linecap: round; stroke-dasharray: 0 1000; }
+.arc-kcal { stroke: var(--anneau); }
+.arc-p { stroke: var(--p); }
+.arc-g { stroke: var(--g); }
+.arc-l { stroke: var(--l); }
+.arc-f { stroke: var(--f); }
+.centre { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.grand-nombre { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+.petits-anneaux { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; text-align: center; }
+.macro { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.macro svg { width: 64px; height: 64px; }
+.macro strong { font-size: 15px; }
+
+/* Repas */
+.liste-moments { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.moment { background: var(--carte); border-radius: 20px; }
+.moment-entete { display: flex; align-items: center; gap: 8px; padding-right: 8px; min-height: 64px; }
+.moment-bouton {
+  flex: 1 1 auto; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: 12px;
+  padding: 0 0 0 16px; border: none; background: none; text-align: left;
+}
+.point { width: 10px; height: 10px; border-radius: 5px; flex: 0 0 auto; }
+.moment-noms { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.moment-noms strong { font-size: 16px; }
+.moment-kcal { font-size: 16px; font-weight: 700; }
+.bouton-plus {
+  width: 44px; height: 44px; border-radius: 22px; border: none; background: var(--carte2);
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+}
+.lignes { list-style: none; margin: 0; padding: 0 16px 10px 38px; }
+.lignes button {
+  width: 100%; min-height: 44px; display: flex; align-items: center; gap: 8px; border: none;
+  border-top: 1px solid var(--ligne); background: none; text-align: left; font-size: 15px; padding: 0;
+}
+.lignes .nom { flex: 1 1 auto; min-width: 0; }
+.lignes .valeur { color: var(--doux); }
+
+/* Feuilles (plein écran, pour que le clavier ne cache rien) */
+.feuille {
+  width: 100%; max-width: 100%; height: 100%; max-height: 100%; margin: 0; border: none;
+  background: var(--fond); color: var(--texte);
+  padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+.feuille[open] { display: flex; flex-direction: column; gap: 14px; }
+.feuille::backdrop { background: rgba(0, 0, 0, 0.3); }
+.entete-feuille { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.entete-feuille h2 { font-size: 22px; }
+.champ-recherche input {
+  width: 100%; height: 48px; border-radius: 24px; border: none; background: var(--carte); padding: 0 16px; font-size: 16px;
+}
+.liste-resultats { list-style: none; margin: 10px 0 0; padding: 0; background: var(--carte); border-radius: 18px; overflow: hidden; }
+.liste-resultats:empty { display: none; }
+.liste-resultats button {
+  width: 100%; min-height: 48px; display: flex; align-items: center; gap: 8px; border: none; background: none;
+  border-bottom: 1px solid var(--ligne); padding: 0 16px; text-align: left; font-size: 15px;
+}
+.liste-resultats li:last-child button { border-bottom: none; }
+.liste-resultats .nom { flex: 1 1 auto; min-width: 0; }
+.liste-resultats .valeur { color: var(--doux); font-size: 13px; white-space: nowrap; }
+#etapeQuantite, #feuilleLigne[open] { gap: 14px; }
+#etapeQuantite { display: flex; flex-direction: column; }
+#etapeQuantite[hidden] { display: none !important; }
+#nomChoisi { font-size: 20px; }
+.champ-quantite {
+  display: flex; align-items: center; gap: 10px; height: 56px; border-radius: 16px; background: var(--carte); padding: 0 16px;
+  font-size: 14px; color: var(--doux);
+}
+.champ-quantite input {
+  flex: 1 1 auto; min-width: 0; border: none; background: none; text-align: right; font-size: 24px; font-weight: 700; color: var(--texte);
+}
+.champ-quantite span { font-size: 18px; font-weight: 600; color: var(--texte); }
+.apercu { color: var(--doux); font-size: 15px; text-align: center; }
+
+/* Bandeau d'erreur ou d'info */
+.bandeau {
+  position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
+  background: var(--texte); color: var(--fond); padding: 14px 16px; border-radius: 14px; font-size: 14px; z-index: 10;
+}
