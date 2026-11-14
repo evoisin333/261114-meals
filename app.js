@@ -1,5 +1,5 @@
-// Journal des repas – étapes 3a + 3b : connexion, écran du jour, ajout / modification / suppression,
-// grignotages, cheat meal, « Copier d'hier », favoris
+// Journal des repas – étapes 3a à 3c : connexion, écran du jour, ajout / modification / suppression,
+// grignotages, cheat meal, « Copier d'hier », favoris, objectifs, semaine
 'use strict';
 
 const client = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseCle);
@@ -30,7 +30,8 @@ const etat = {
   ouvert: null,         // moment déplié
   momentAjout: null,    // moment où on ajoute
   alimentChoisi: null,
-  ligneChoisie: null
+  ligneChoisie: null,
+  ecran: 'jour'         // 'jour' ou 'semaine'
 };
 
 // ---------- Outils ----------
@@ -122,6 +123,8 @@ async function demarrer() {
 
 function montrerConnexion() {
   $('ecranJour').hidden = true;
+  $('ecranSemaine').hidden = true;
+  $('barreBas').hidden = true;
   $('ecranConnexion').hidden = false;
 }
 
@@ -148,7 +151,8 @@ $('boutonDeconnexion').addEventListener('click', async () => {
 
 async function ouvrirAppli() {
   $('ecranConnexion').hidden = true;
-  $('ecranJour').hidden = false;
+  $('barreBas').hidden = false;
+  montrerEcran('jour');
   try {
     await Promise.all([chargerAliments(), chargerObjectifs(), chargerPrenom(), chargerFavoris()]);
     await chargerJour();
@@ -348,11 +352,12 @@ $('boutonDate').addEventListener('click', () => allerAu(aujourdhui()));
 // En revenant sur l'appli : on recharge (et on passe au nouveau jour après minuit)
 let jourAuDepart = aujourdhui();
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden || $('ecranJour').hidden) return;
+  if (document.hidden || $('barreBas').hidden) return;
   const auj = aujourdhui();
   if (auj !== jourAuDepart && etat.jour === jourAuDepart) etat.jour = auj;
   jourAuDepart = auj;
-  chargerJour().catch(erreur);
+  if (etat.ecran === 'jour') chargerJour().catch(erreur);
+  else chargerSemaine().catch(erreur);
 });
 
 // ---------- Type de jour (repos par défaut = pas de ligne en base) ----------
@@ -601,9 +606,211 @@ $('boutonSupprimerLigne').addEventListener('click', async () => {
   chargerJour().catch(erreur);
 });
 
+// ---------- Onglets ----------
+
+function montrerEcran(ecran) {
+  etat.ecran = ecran;
+  $('ecranJour').hidden = ecran !== 'jour';
+  $('ecranSemaine').hidden = ecran !== 'semaine';
+  for (const [id, nom] of [['ongletJour', 'jour'], ['ongletSemaine', 'semaine']]) {
+    $(id).classList.toggle('actif', ecran === nom);
+    if (ecran === nom) $(id).setAttribute('aria-current', 'page');
+    else $(id).removeAttribute('aria-current');
+  }
+  window.scrollTo(0, 0);
+}
+
+$('ongletJour').addEventListener('click', () => {
+  montrerEcran('jour');
+  chargerJour().catch(erreur);
+});
+$('ongletSemaine').addEventListener('click', () => {
+  montrerEcran('semaine');
+  chargerSemaine().catch(erreur);
+});
+$('ongletProfil').addEventListener('click', ouvrirProfil);
+
+// ---------- Profil : objectifs ----------
+
+const CHAMPS_OBJECTIF = ['kcal', 'proteines', 'glucides', 'lipides'];
+const MAX_OBJECTIF = { kcal: 10000, proteines: 1000, glucides: 1000, lipides: 1000 };
+
+function ouvrirProfil() {
+  for (const type of ['repos', 'entrainement']) {
+    const o = etat.objectifs[type];
+    for (const c of CHAMPS_OBJECTIF) $('obj_' + type + '_' + c).value = o ? String(o[c]) : '';
+  }
+  $('messageObjectifs').textContent = '';
+  $('feuilleProfil').showModal();
+}
+
+$('formObjectifs').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('messageObjectifs').textContent = '';
+  // 1) Vérification de toutes les cases avant d'écrire quoi que ce soit
+  const aEcrire = {};
+  for (const type of ['repos', 'entrainement']) {
+    const textes = CHAMPS_OBJECTIF.map((c) => $('obj_' + type + '_' + c).value.trim());
+    if (textes.every((t) => t === '')) { aEcrire[type] = null; continue; }
+    const valeurs = {};
+    for (let i = 0; i < CHAMPS_OBJECTIF.length; i++) {
+      const c = CHAMPS_OBJECTIF[i];
+      if (!/^\d+$/.test(textes[i]) || Number(textes[i]) > MAX_OBJECTIF[c]) {
+        $('messageObjectifs').textContent = 'Jours ' + (type === 'repos' ? 'repos' : 'entraînement') +
+          ' : remplis les 4 cases avec des nombres entiers (ou laisse-les toutes vides).';
+        return;
+      }
+      valeurs[c] = Number(textes[i]);
+    }
+    aEcrire[type] = valeurs;
+  }
+  // 2) Écriture : on modifie la ligne si elle existe, sinon on la crée, ou on la supprime si tout est vide
+  $('boutonEnregistrerObjectifs').disabled = true;
+  try {
+    for (const [type, valeurs] of Object.entries(aEcrire)) {
+      if (valeurs === null) {
+        const { error } = await client.from('objectifs').delete().eq('type_jour', type);
+        if (error) throw error;
+        continue;
+      }
+      const maj = await client.from('objectifs').update(valeurs).eq('type_jour', type).select('type_jour');
+      if (maj.error) throw maj.error;
+      if (maj.data.length === 0) {
+        const { error } = await client.from('objectifs').insert({ type_jour: type, ...valeurs });
+        if (error) throw error;
+      }
+    }
+    await chargerObjectifs();
+    afficherJour();
+    $('feuilleProfil').close();
+    afficherBandeau('Objectifs enregistrés');
+  } catch (e) {
+    erreur(e);
+  } finally {
+    $('boutonEnregistrerObjectifs').disabled = false;
+  }
+});
+
+// ---------- Semaine ----------
+
+const JOURS_COURTS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
+const GRIGNOTAGES = MOMENTS.filter((m) => !m.repas);
+
+// Lundi de la semaine qui contient ce jour
+function lundiDe(jour) {
+  const d = new Date(jour + 'T12:00:00Z');
+  return decaler(jour, -((d.getUTCDay() + 6) % 7));
+}
+
+function texteSemaine(lundi) {
+  const debut = new Date(lundi + 'T12:00:00Z');
+  const fin = new Date(decaler(lundi, 6) + 'T12:00:00Z');
+  const f = (d, options) => new Intl.DateTimeFormat('fr-BE', { ...options, timeZone: 'UTC' }).format(d);
+  return debut.getUTCMonth() === fin.getUTCMonth()
+    ? f(debut, { day: 'numeric' }) + ' – ' + f(fin, { day: 'numeric', month: 'long' })
+    : f(debut, { day: 'numeric', month: 'short' }) + ' – ' + f(fin, { day: 'numeric', month: 'short' });
+}
+
+async function chargerSemaine() {
+  const lundi = lundiDe(etat.jour);
+  const dimanche = decaler(lundi, 6);
+  $('texteSemaine').textContent = texteSemaine(lundi);
+  const [lignes, cheats] = await Promise.all([
+    client.from('entrees').select('jour, moment, proteines, glucides, lipides, fibres, kcal')
+      .gte('jour', lundi).lte('jour', dimanche).limit(5000),
+    client.from('cheat_meals').select('jour, moment').gte('jour', lundi).lte('jour', dimanche)
+  ]);
+  for (const r of [lignes, cheats]) if (r.error) throw r.error;
+  if (lundiDe(etat.jour) !== lundi) return;   // on a changé de semaine entre-temps
+  afficherSemaine(lundi, lignes.data, cheats.data);
+}
+
+function afficherSemaine(lundi, lignes, cheats) {
+  // Un objet par jour : kcal par repas, grignotages, macros
+  const jours = JOURS_COURTS.map((court, i) => ({
+    court, jour: decaler(lundi, i), cheat: false, nb: 0,
+    kcalMoment: { dejeuner: 0, diner: 0, quatre_heures: 0, souper: 0, grignotages: 0 },
+    proteines: 0, glucides: 0, lipides: 0, fibres: 0, kcal: 0
+  }));
+  const parJour = Object.fromEntries(jours.map((j) => [j.jour, j]));
+  const momentsCheat = new Set(cheats.map((c) => c.jour + '|' + c.moment));
+  for (const c of cheats) if (parJour[c.jour]) parJour[c.jour].cheat = true;
+
+  const kcalGrignotage = Object.fromEntries(GRIGNOTAGES.map((m) => [m.id, 0]));
+  let kcalSemaine = 0;
+  for (const l of lignes) {
+    const j = parJour[l.jour];
+    if (!j || momentsCheat.has(l.jour + '|' + l.moment)) continue;
+    j.nb++;
+    for (const c of ['proteines', 'glucides', 'lipides', 'fibres', 'kcal']) j[c] += Number(l[c]);
+    const repas = momentParId(l.moment).repas;
+    j.kcalMoment[repas ? l.moment : 'grignotages'] += Number(l.kcal);
+    if (!repas) kcalGrignotage[l.moment] += Number(l.kcal);
+    kcalSemaine += Number(l.kcal);
+  }
+
+  // Moyenne : seulement les jours encodés et sans cheat meal
+  const complets = jours.filter((j) => j.nb > 0 && !j.cheat);
+  const moyenne = (c) => complets.reduce((s, j) => s + j[c], 0) / complets.length;
+  $('moyenneKcal').textContent = complets.length
+    ? 'moyenne ' + nombre(moyenne('kcal')) + ' (' + complets.length + ' j.)'
+    : 'pas encore de jour complet';
+
+  // Barres empilées
+  const max = Math.max(1, ...jours.map((j) => j.kcal));
+  const couleurs = { dejeuner: 'var(--dejeuner)', diner: 'var(--diner)', quatre_heures: 'var(--quatre-heures)', souper: 'var(--souper)', grignotages: 'var(--grignotage)' };
+  $('barresSemaine').replaceChildren(...jours.map((j) => {
+    const morceaux = Object.entries(j.kcalMoment).filter(([, k]) => k > 0)
+      .map(([m, k]) => el('i', { style: 'width:' + (k / max * 100).toFixed(1) + '%;background:' + couleurs[m] }));
+    const total = j.cheat ? 'partiel' : j.nb ? nombre(j.kcal) : '–';
+    return el('button', { classe: 'barre-jour' + (j.cheat ? ' partiel' : ''), 'aria-label': j.court + ' : ' + total, onclick: () => ouvrirJour(j.jour) }, [
+      el('span', { classe: 'jour-court', texte: j.court }),
+      el('span', { classe: 'pile' }, morceaux),
+      el('span', { classe: 'total', texte: total })
+    ]);
+  }));
+
+  // Grignotages par moment
+  const totalGrig = Object.values(kcalGrignotage).reduce((a, b) => a + b, 0);
+  $('totalGrignotages').textContent = nombre(totalGrig) + ' kcal' +
+    (kcalSemaine > 0 ? ' · ' + nombre(totalGrig / kcalSemaine * 100, 1) + ' % de la semaine' : '');
+  const maxGrig = Math.max(1, ...Object.values(kcalGrignotage));
+  $('grignotagesSemaine').replaceChildren(...GRIGNOTAGES.map((m) =>
+    el('div', { classe: 'ligne-grignotage' }, [
+      el('span', { classe: 'nom', texte: m.nom.replace('Grignotage · ', '').replace(/^./, (x) => x.toUpperCase()) }),
+      el('span', { classe: 'jauge' }, [el('i', { style: 'width:' + (kcalGrignotage[m.id] / maxGrig * 100).toFixed(1) + '%' })]),
+      el('span', { classe: 'valeur', texte: nombre(kcalGrignotage[m.id]) + ' kcal' })
+    ])
+  ));
+
+  // Tableau des macros
+  const cellule = (j, c) => el('td', { texte: j.nb ? nombre(j[c]) : '–' });
+  $('corpsTableSemaine').replaceChildren(...jours.map((j) =>
+    el('tr', { classe: j.cheat ? 'partiel' : j.nb ? '' : 'vide' }, [
+      el('td', {}, [el('button', { texte: j.court + (j.cheat ? ' · cheat' : ''), onclick: () => ouvrirJour(j.jour) })]),
+      cellule(j, 'proteines'), cellule(j, 'glucides'), cellule(j, 'lipides'), cellule(j, 'fibres')
+    ])
+  ));
+  $('ligneMoyenne').replaceChildren(
+    el('td', { texte: 'Moy.' }),
+    ...['proteines', 'glucides', 'lipides', 'fibres'].map((c) => el('td', { texte: complets.length ? nombre(moyenne(c)) : '–' }))
+  );
+
+  const nbCheat = cheats.length;
+  $('texteCheatSemaine').textContent = nbCheat === 0 ? 'Aucun cheat meal cette semaine'
+    : nbCheat + (nbCheat > 1 ? ' cheat meals' : ' cheat meal') + ' cette semaine (jours exclus de la moyenne)';
+}
+
+function ouvrirJour(jour) {
+  montrerEcran('jour');
+  allerAu(jour);
+}
+
+$('boutonSemainePrecedente').addEventListener('click', () => { etat.jour = decaler(lundiDe(etat.jour), -7); chargerSemaine().catch(erreur); });
+$('boutonSemaineSuivante').addEventListener('click', () => { etat.jour = decaler(lundiDe(etat.jour), 7); chargerSemaine().catch(erreur); });
+
 // ---------- Feuilles ----------
 
-$('boutonProfil').addEventListener('click', () => $('feuilleProfil').showModal());
 for (const bouton of document.querySelectorAll('[data-fermer]')) {
   bouton.addEventListener('click', () => bouton.closest('dialog').close());
 }

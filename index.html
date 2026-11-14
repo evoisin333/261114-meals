@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="Repas">
 <meta name="color-scheme" content="light dark">
 <title>Repas</title>
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -69,9 +69,63 @@
 
   <div id="listeMoments" class="liste-moments"></div>
   <button id="boutonGrignotage" class="bouton-pointille">+ Grignotage</button>
-
-  <button id="boutonProfil" class="bouton-discret">Profil et déconnexion</button>
 </main>
+
+<!-- Écran de la semaine -->
+<main id="ecranSemaine" hidden>
+  <header class="entete">
+    <button id="boutonSemainePrecedente" class="bouton-rond" aria-label="Semaine précédente">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="titre-date">
+      <span>Semaine</span>
+      <strong id="texteSemaine"></strong>
+    </div>
+    <button id="boutonSemaineSuivante" class="bouton-rond" aria-label="Semaine suivante">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </header>
+
+  <section class="carte">
+    <div class="carte-titre"><h2>Kcal par moment</h2><span id="moyenneKcal" class="discret"></span></div>
+    <div class="legende">
+      <span><i style="background:var(--dejeuner)"></i>Déjeuner</span>
+      <span><i style="background:var(--diner)"></i>Dîner</span>
+      <span><i style="background:var(--quatre-heures)"></i>4h</span>
+      <span><i style="background:var(--souper)"></i>Souper</span>
+      <span><i style="background:var(--grignotage)"></i>Grignotages</span>
+    </div>
+    <div id="barresSemaine" class="barres-semaine"></div>
+  </section>
+
+  <section class="carte">
+    <div class="carte-titre"><h2>Grignotages</h2><span id="totalGrignotages" class="discret"></span></div>
+    <div id="grignotagesSemaine" class="grignotages-semaine"></div>
+  </section>
+
+  <section class="carte">
+    <table class="table-semaine">
+      <thead><tr><th scope="col">Jour</th><th scope="col">Prot.</th><th scope="col">Gluc.</th><th scope="col">Lip.</th><th scope="col">Fibres</th></tr></thead>
+      <tbody id="corpsTableSemaine"></tbody>
+      <tfoot><tr id="ligneMoyenne"></tr></tfoot>
+    </table>
+    <p class="discret">Valeurs en grammes. Touche un jour pour l'ouvrir.</p>
+  </section>
+  <p id="texteCheatSemaine" class="discret texte-centre"></p>
+</main>
+
+<!-- Barre du bas -->
+<nav id="barreBas" class="barre-bas" aria-label="Navigation" hidden>
+  <button id="ongletJour" class="onglet actif" aria-current="page">
+    <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Jour
+  </button>
+  <button id="ongletSemaine" class="onglet">
+    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V9M9 19V5M14 19v-7M19 19V8"/></svg>Semaine
+  </button>
+  <button id="ongletProfil" class="onglet">
+    <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profil
+  </button>
+</nav>
 
 <!-- Ajouter un aliment -->
 <dialog id="feuilleAjout" class="feuille">
@@ -129,6 +183,25 @@
     <h2 id="titreProfil">Profil</h2>
     <button class="bouton-texte" data-fermer>Fermer</button>
   </header>
+  <form id="formObjectifs" class="form-objectifs">
+    <fieldset>
+      <legend>Objectifs des jours repos</legend>
+      <label>Kcal <input id="obj_repos_kcal" inputmode="numeric" autocomplete="off"></label>
+      <label>Protéines (g) <input id="obj_repos_proteines" inputmode="numeric" autocomplete="off"></label>
+      <label>Glucides (g) <input id="obj_repos_glucides" inputmode="numeric" autocomplete="off"></label>
+      <label>Lipides (g) <input id="obj_repos_lipides" inputmode="numeric" autocomplete="off"></label>
+    </fieldset>
+    <fieldset>
+      <legend>Objectifs des jours entraînement</legend>
+      <label>Kcal <input id="obj_entrainement_kcal" inputmode="numeric" autocomplete="off"></label>
+      <label>Protéines (g) <input id="obj_entrainement_proteines" inputmode="numeric" autocomplete="off"></label>
+      <label>Glucides (g) <input id="obj_entrainement_glucides" inputmode="numeric" autocomplete="off"></label>
+      <label>Lipides (g) <input id="obj_entrainement_lipides" inputmode="numeric" autocomplete="off"></label>
+    </fieldset>
+    <p class="discret">Laisse les 4 cases vides pour ne pas avoir d'objectif.</p>
+    <p id="messageObjectifs" class="message-erreur" role="alert"></p>
+    <button type="submit" id="boutonEnregistrerObjectifs" class="bouton-principal">Enregistrer les objectifs</button>
+  </form>
   <button id="boutonDeconnexion" class="bouton-secondaire">Se déconnecter de ce téléphone</button>
 </dialog>
 
@@ -138,7 +211,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"
         integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O"
         crossorigin="anonymous"></script>
-<script src="config.js?v=2"></script>
-<script src="app.js?v=2"></script>
+<script src="config.js?v=3"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

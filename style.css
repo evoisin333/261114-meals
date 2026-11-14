@@ -56,7 +56,7 @@ html, body {
   -webkit-text-size-adjust: 100%;
 }
 body {
-  padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
 }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -217,3 +217,59 @@ h1, h2, h3, p { margin: 0; }
   flex: 0 0 auto; height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--bord); background: none; font-size: 14px; font-weight: 600;
 }
 .bouton-favori[aria-pressed="true"] { background: var(--texte); color: var(--fond); border-color: var(--texte); }
+
+/* Étape 3c : barre du bas, semaine, objectifs */
+.barre-bas {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: var(--carte); border-top: 1px solid var(--ligne);
+  padding: 6px 0 max(8px, env(safe-area-inset-bottom));
+}
+.onglet {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px;
+  border: none; background: none; color: var(--doux); font-size: 12px; font-weight: 600;
+}
+.onglet svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.onglet.actif { color: var(--texte); font-weight: 700; }
+.bandeau { bottom: calc(80px + env(safe-area-inset-bottom)); }
+
+#ecranSemaine { display: flex; flex-direction: column; gap: 14px; }
+#ecranSemaine[hidden] { display: none !important; }
+.carte { background: var(--carte); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.carte-titre { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.carte-titre h2 { font-size: 17px; }
+.legende { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--doux); }
+.legende span { display: flex; align-items: center; gap: 5px; }
+.legende i { width: 10px; height: 10px; border-radius: 3px; }
+.barres-semaine { display: flex; flex-direction: column; gap: 2px; }
+.barre-jour {
+  display: flex; align-items: center; gap: 10px; min-height: 30px; border: none; background: none; padding: 0; text-align: left;
+}
+.barre-jour .jour-court { width: 24px; font-size: 14px; font-weight: 700; }
+.barre-jour .pile { flex: 1 1 auto; display: flex; gap: 2px; height: 16px; }
+.barre-jour .pile i { display: block; height: 16px; }
+.barre-jour .pile i:first-child { border-radius: 4px 0 0 4px; }
+.barre-jour .pile i:last-child { border-radius: 0 4px 4px 0; }
+.barre-jour .total { width: 64px; text-align: right; font-size: 14px; font-weight: 600; }
+.barre-jour.partiel .total { color: var(--doux); font-weight: 600; font-size: 12px; }
+.grignotages-semaine { display: flex; flex-direction: column; gap: 4px; }
+.ligne-grignotage { display: flex; align-items: center; gap: 10px; min-height: 26px; font-size: 14px; }
+.ligne-grignotage .nom { width: 96px; }
+.ligne-grignotage .jauge { flex: 1 1 auto; height: 10px; background: var(--piste); border-radius: 5px; overflow: hidden; }
+.ligne-grignotage .jauge i { display: block; height: 10px; background: var(--grignotage); border-radius: 5px; }
+.ligne-grignotage .valeur { width: 72px; text-align: right; font-weight: 600; }
+.table-semaine { width: 100%; border-collapse: collapse; font-size: 15px; }
+.table-semaine th { font-size: 12px; color: var(--doux); text-transform: uppercase; letter-spacing: 0.4px; text-align: right; padding: 4px 0; }
+.table-semaine th:first-child, .table-semaine td:first-child { text-align: left; }
+.table-semaine td { text-align: right; border-top: 1px solid var(--ligne); }
+.table-semaine td button { width: 100%; min-height: 40px; border: none; background: none; text-align: left; font-weight: 600; padding: 0; }
+.table-semaine tr.partiel td, .table-semaine tr.vide td { color: var(--doux); }
+.table-semaine tfoot td { border-top: 2px solid var(--texte); font-weight: 800; padding: 10px 0; }
+.texte-centre { text-align: center; }
+
+.form-objectifs { display: flex; flex-direction: column; gap: 14px; }
+.form-objectifs fieldset { border: none; margin: 0; padding: 14px 16px; background: var(--carte); border-radius: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.form-objectifs legend { float: left; width: 100%; font-weight: 700; margin-bottom: 4px; grid-column: 1 / -1; }
+.form-objectifs label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--doux); }
+.form-objectifs input { height: 44px; border-radius: 12px; border: 1px solid var(--bord); background: var(--fond); padding: 0 12px; font-size: 16px; color: var(--texte); }
+#feuilleProfil { overflow-y: auto; }
