@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-title" content="Repas">
 <meta name="color-scheme" content="light dark">
 <title>Repas</title>
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -248,6 +248,10 @@
       <input id="rechercheIngredient" type="search" placeholder="+ Ajouter un ingrédient" autocomplete="off" autocorrect="off">
     </label>
     <ul id="resultatsIngredient" class="large liste-resultats"></ul>
+    <div id="boutonsIngredient" class="large boutons-ajout">
+      <button type="button" id="boutonScannerIngredient" class="bouton-secondaire">Scanner un ingrédient</button>
+      <button type="button" id="boutonNouvelIngredient" class="bouton-secondaire">Nouvel aliment</button>
+    </div>
     <p id="totauxRecette" class="large apercu"></p>
     <p id="messageRecette" class="large message-erreur" role="alert"></p>
     <button type="submit" id="boutonEnregistrerRecette" class="large bouton-principal">Enregistrer la recette</button>
@@ -308,7 +312,7 @@
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
         integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
         crossorigin="anonymous"></script>
-<script src="config.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

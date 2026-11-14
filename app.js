@@ -30,6 +30,7 @@ const etat = {
   uniteRecette: 'portion', // unité choisie pour encoder une recette
   recetteOuverte: null, // recette affichée dans la feuille (null = nouvelle)
   ingredients: [],      // ingrédients en cours d'édition : { aliment, quantite (texte) }
+  destination: 'journal', // où va l'aliment scanné ou créé : 'journal' ou 'recette'
   favoris: new Set(),   // identifiants des aliments favoris
   ouvert: null,         // moment déplié
   momentAjout: null,    // moment où on ajoute
@@ -685,7 +686,8 @@ function fermerScan() {
   if ($('feuilleScan').open) $('feuilleScan').close();
 }
 
-$('boutonScanner').addEventListener('click', ouvrirScan);
+$('boutonScanner').addEventListener('click', () => { etat.destination = 'journal'; ouvrirScan(); });
+$('boutonScannerIngredient').addEventListener('click', () => { etat.destination = 'recette'; ouvrirScan(); });
 $('boutonFermerScan').addEventListener('click', fermerScan);
 $('feuilleScan').addEventListener('cancel', arreterCamera);
 document.addEventListener('visibilitychange', () => { if (document.hidden && scanEnCours) fermerScan(); });
@@ -700,10 +702,16 @@ $('boutonChercherCode').addEventListener('click', () => {
   traiterCode(code);
 });
 
+// Aliment scanné ou créé : dans le journal (quantité) ou dans la recette en cours (ingrédient)
+function utiliserAliment(a) {
+  if (etat.destination === 'recette') ajouterIngredient(a);
+  else choisirAliment(a);
+}
+
 // Code lu : aliment déjà dans la base, sinon Open Food Facts, sinon fiche vide
 async function traiterCode(code) {
   const connu = etat.aliments.find((a) => a.code_barres === code);
-  if (connu) return choisirAliment(connu);
+  if (connu) return utiliserAliment(connu);
 
   afficherBandeau('Recherche du produit ' + code + '…');
   let produit = null;
@@ -809,8 +817,9 @@ for (const champ of $('formAliment').querySelectorAll('input')) {
   champ.addEventListener('input', () => champ.classList.remove('manquant'));
 }
 
-$('boutonNouvelAliment').addEventListener('click', () => ouvrirFiche(null, '', null));
-$('boutonModifierAliment').addEventListener('click', () => ouvrirFiche(etat.alimentChoisi, '', null));
+$('boutonNouvelAliment').addEventListener('click', () => { etat.destination = 'journal'; ouvrirFiche(null, '', null); });
+$('boutonNouvelIngredient').addEventListener('click', () => { etat.destination = 'recette'; ouvrirFiche(null, '', null); });
+$('boutonModifierAliment').addEventListener('click', () => { etat.destination = 'journal'; ouvrirFiche(etat.alimentChoisi, '', null); });
 
 // Lit un nombre de la fiche : null si vide, NaN si invalide
 function lireNombre(id, max) {
@@ -878,7 +887,7 @@ $('formAliment').addEventListener('submit', async (ev) => {
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
   calculerRecettes();
   $('feuilleAliment').close();
-  choisirAliment(aliment);
+  utiliserAliment(aliment);
   afficherBandeau(etat.ficheAliment ? 'Aliment modifié (le journal passé ne change pas)' : 'Aliment ajouté à la base commune');
 });
 
@@ -976,6 +985,7 @@ function ouvrirRecette(r) {
     : [];
   for (const champ of $('formRecette').querySelectorAll('input')) champ.disabled = lecture;
   $('zoneAjoutIngredient').hidden = lecture;
+  $('boutonsIngredient').hidden = lecture;
   $('boutonEnregistrerRecette').hidden = lecture;
   $('boutonSupprimerRecette').hidden = !r || lecture;
   $('boutonSupprimerRecette').classList.remove('confirmer');
