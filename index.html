@@ -13,10 +13,12 @@
 <title>Buon app'</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icones/icone-180.png">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
+<!-- Zone qui défile : la page elle-même ne défile jamais (voir app.js, « recalerPage ») -->
+<div id="defilement" class="defilement">
 <div id="bandeauHorsLigne" class="bandeau-hors-ligne" role="status" hidden>Hors connexion · lecture seule</div>
 
 <!-- Écran de connexion -->
@@ -132,6 +134,7 @@
   <ul id="listeRecettes" class="liste-resultats"></ul>
   <p id="aucuneRecette" class="discret texte-centre" hidden>Pas encore de recette.</p>
 </main>
+</div>
 
 <!-- Barre du bas -->
 <nav id="barreBas" class="barre-bas" aria-label="Navigation" hidden>
@@ -320,7 +323,7 @@
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
         integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
         crossorigin="anonymous"></script>
-<script src="config.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

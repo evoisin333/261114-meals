@@ -463,6 +463,7 @@ function carteMoment(moment, lignes) {
 function remplirArc(id, valeur, objectif, tour) {
   const part = objectif ? Math.min(1, valeur / objectif) : 0;
   $(id).style.strokeDasharray = (part * tour).toFixed(1) + ' ' + tour.toFixed(1);
+  $(id).style.opacity = part > 0 ? 1 : 0;   // sinon le bout arrondi laisse un point quand l'anneau est vide
 }
 
 // ---------- Navigation entre les jours ----------
@@ -1328,7 +1329,7 @@ function montrerEcran(ecran) {
     if (ecran === nom) $(id).setAttribute('aria-current', 'page');
     else $(id).removeAttribute('aria-current');
   }
-  window.scrollTo(0, 0);
+  $('defilement').scrollTop = 0;
 }
 
 $('ongletJour').addEventListener('click', () => {
@@ -1537,6 +1538,19 @@ $('boutonSemaineSuivante').addEventListener('click', () => { etat.jour = decaler
 for (const bouton of document.querySelectorAll('[data-fermer]')) {
   bouton.addEventListener('click', () => bouton.closest('dialog').close());
 }
+
+// iPhone : quand le clavier se ferme, Safari peut laisser toute la page décalée vers le haut
+// (la barre du bas se retrouve au milieu de l'écran). La page elle-même ne défile jamais
+// (c'est #defilement qui défile), donc on la remet simplement en haut, sauf si on tape quelque chose.
+function recalerPage() {
+  const actif = document.activeElement;
+  if (actif && /^(INPUT|TEXTAREA|SELECT)$/.test(actif.tagName)) return;
+  if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+}
+const recalerBientot = () => setTimeout(recalerPage, 150);
+document.addEventListener('focusout', recalerBientot);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', recalerBientot);
+for (const feuille of document.querySelectorAll('dialog')) feuille.addEventListener('close', recalerBientot);
 
 // Appli installable et ouverture sans réseau
 if ('serviceWorker' in navigator) {
