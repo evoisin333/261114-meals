@@ -19,6 +19,10 @@ Scripts à coller dans l'ordre dans Supabase › SQL Editor. Chacun peut être r
 3. `sql/03_membres.sql` : les 3 comptes qui ont accès (identifiants Supabase, pas d'e-mails).
 4. `sql/04_aliments.sql` : les 364 aliments de départ, repris de l'Excel.
 5. `sql/05_test_securite.sql` : vérifie les droits de chaque compte. Toutes les lignes doivent afficher `ok = true`.
+6. `sql/06_recettes_v2.sql` : recettes avec photo, étapes, temps, source et notes ; carnets communs (gérés par Emma) et carnets perso ; espace privé `photos-recettes` pour les photos (2 Mo et JPEG au plus).
+7. `sql/07_test_recettes.sql` : vérifie les droits sur les carnets et les photos. Toutes les lignes doivent afficher `ok = true`.
+
+⚠️ Si tu relances `02_securite.sql`, relance ensuite `06_recettes_v2.sql` : 02 remet les droits de départ et oublie ce que 06 a ajouté.
 
 ## 📱 Appli
 
