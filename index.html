@@ -13,7 +13,14 @@
 <title>Buon app'</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icones/icone-180.png">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
+<script>
+  // Apparence choisie dans Profil (gardée sur ce téléphone), appliquée avant l'affichage
+  try {
+    var apparence = localStorage.getItem('buonapp-apparence');
+    if (apparence === 'clair' || apparence === 'sombre') document.documentElement.dataset.theme = apparence;
+  } catch (e) {}
+</script>
 </head>
 <body>
 
@@ -213,7 +220,10 @@
         <div><strong id="fFiche" class="c-f"></strong><span class="discret">Fibres</span></div>
       </div>
     </section>
-    <button id="boutonEncoderRecette" class="bouton-principal ecrit">Encoder une portion</button>
+    <div class="deux-boutons">
+      <button id="boutonModeCuisine" class="bouton-principal">Mode cuisine</button>
+      <button id="boutonEncoderRecette" class="bouton-secondaire ecrit">Encoder une portion</button>
+    </div>
     <section class="carte">
       <div class="carte-titre">
         <h2>Ingrédients</h2>
@@ -434,6 +444,28 @@
   <ul id="listeRanger" class="liste-resultats liste-cases"></ul>
 </dialog>
 
+<!-- Mode cuisine : une étape à la fois, écran gardé allumé si le téléphone le permet -->
+<dialog id="feuilleCuisine" class="feuille cuisine">
+  <header class="entete-cuisine">
+    <button id="boutonFermerCuisine" class="bouton-rond" aria-label="Quitter le mode cuisine">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <span id="badgeEcran" class="badge-ecran" hidden><i></i>Écran allumé</span>
+  </header>
+  <div class="tete-cuisine">
+    <span id="nomCuisine" class="nom-cuisine"></span>
+    <strong id="compteurCuisine"></strong>
+    <div id="barresCuisine" class="barres-cuisine" aria-hidden="true"></div>
+  </div>
+  <p id="texteCuisine" class="texte-cuisine" aria-live="polite"></p>
+  <ul id="ingredientsCuisine" class="ingredients-cuisine" hidden></ul>
+  <button id="boutonIngredientsCuisine" class="bouton-contour" aria-expanded="false">Voir les ingrédients</button>
+  <div class="navigation-cuisine">
+    <button id="boutonEtapePrecedente">Précédente</button>
+    <button id="boutonEtapeSuivante" class="suivante">Suivante</button>
+  </div>
+</dialog>
+
 <!-- Modifier une ligne du journal -->
 <dialog id="feuilleLigne" class="feuille">
   <header class="entete-feuille">
@@ -455,6 +487,15 @@
     <h2 id="titreProfil">Profil</h2>
     <button class="bouton-texte" data-fermer>Fermer</button>
   </header>
+  <section class="carte">
+    <h2>Apparence</h2>
+    <div id="choixApparence" class="segments trois" role="radiogroup" aria-label="Apparence">
+      <button role="radio" data-apparence="auto">Automatique</button>
+      <button role="radio" data-apparence="clair">Clair</button>
+      <button role="radio" data-apparence="sombre">Sombre</button>
+    </div>
+    <p id="texteApparence" class="discret"></p>
+  </section>
   <form id="formObjectifs" class="form-objectifs">
     <fieldset>
       <legend>Objectifs des jours repos</legend>
@@ -487,7 +528,7 @@
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
         integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
         crossorigin="anonymous"></script>
-<script src="config.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="config.js?v=11"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

@@ -32,6 +32,8 @@ Scripts à coller dans l'ordre dans Supabase › SQL Editor. Chacun peut être r
 - `sw.js` : service worker. Les fichiers de l'appli sont toujours redemandés au serveur (copie seulement sans réseau ou après 4 s) ; les bibliothèques jsDelivr (versions figées) sont gardées. Les données Supabase et Open Food Facts ne passent jamais par lui.
 - Sans réseau : lecture seule, avec la copie gardée sur le téléphone (`localStorage`) : aliments, recettes, carnets, objectifs, favoris, 31 derniers jours et 8 dernières semaines consultés. Effacée à la déconnexion.
 - Gardés sur le téléphone (par compte) : l'onglet « Communs | Mes carnets » choisi et le tri des recettes.
+- 🌗 Apparence (Profil) : Automatique / Clair / Sombre, gardée sur le téléphone (`buonapp-apparence`, pas effacée à la déconnexion), appliquée dès l'ouverture par un petit script dans `index.html`.
+- 🍳 Mode cuisine : garde l'écran allumé avec Screen Wake Lock. Dans l'appli installée, ça ne marche qu'à partir d'iOS 18.4 (doc WebKit, Safari 18.4) ; sinon le badge « Écran allumé » n'apparaît pas.
 - 📷 Photos des recettes : réduites sur le téléphone (1 200 px, JPEG) puis envoyées dans l'espace privé `photos-recettes` de Supabase (dossier = numéro de la recette, nouveau nom à chaque photo). Chaque téléphone télécharge une photo une seule fois et la garde (cache `buonapp-photos`, que `sw.js` ne doit pas effacer). Effacées du téléphone à la déconnexion.
 - Plus besoin de changer le numéro `?v=` à chaque mise à jour (le service worker revérifie les fichiers).
 - Si la liste des fichiers de `sw.js` change, changer le nom du cache (`buonapp-1` → `buonapp-2`).

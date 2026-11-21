@@ -1758,6 +1758,9 @@ function afficherFiche() {
   const etapes = (r.etapes || []).filter((e) => e.trim());
   $('etapesFiche').replaceChildren(...etapes.map((e) => el('li', { texte: e })));
   $('carteEtapes').hidden = etapes.length === 0;
+  $('boutonModeCuisine').hidden = etapes.length === 0;
+  // À côté de « Mode cuisine », la place manque : libellé court
+  if (etapes.length) $('boutonEncoderRecette').textContent = 'Encoder';
   $('notesFiche').textContent = r.notes || '';
   $('carteNotes').hidden = !r.notes;
 }
@@ -2047,6 +2050,138 @@ async function enregistrerCarnetsRecette(id) {
     if (error && error.code !== '23505') throw error;
   }
 }
+
+// ---------- Mode cuisine ----------
+
+let etapeCuisine = 0;
+let verrouEcran = null;   // garde l'écran allumé (Screen Wake Lock), si le téléphone le permet
+
+function etapesDe(r) {
+  return (r.etapes || []).map((e) => e.trim()).filter(Boolean);
+}
+
+async function garderEcranAllume() {
+  try {
+    if (!('wakeLock' in navigator) || verrouEcran) return;
+    verrouEcran = await navigator.wakeLock.request('screen');
+    verrouEcran.addEventListener('release', () => { verrouEcran = null; $('badgeEcran').hidden = true; });
+    $('badgeEcran').hidden = false;
+  } catch (e) {
+    // Refusé ou pas disponible (appli installée avant iOS 18.4…) : l'écran se met en veille normalement
+    console.warn('Écran allumé impossible', e);
+    $('badgeEcran').hidden = true;
+  }
+}
+
+function libererEcran() {
+  if (verrouEcran) verrouEcran.release().catch(() => {});
+  verrouEcran = null;
+  $('badgeEcran').hidden = true;
+}
+
+// Le verrou saute quand l'appli passe en arrière-plan : on le redemande au retour
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && $('feuilleCuisine').open) garderEcranAllume();
+});
+
+function ouvrirCuisine() {
+  const r = etat.recetteFiche;
+  if (!etapesDe(r).length) return;
+  etapeCuisine = 0;
+  $('nomCuisine').textContent = r.nom;
+  $('ingredientsCuisine').hidden = true;
+  $('boutonIngredientsCuisine').setAttribute('aria-expanded', 'false');
+  $('boutonIngredientsCuisine').textContent = 'Voir les ingrédients';
+  afficherCuisine();
+  $('feuilleCuisine').showModal();
+  garderEcranAllume();   // dans le geste de l'utilisateur
+}
+
+function afficherCuisine() {
+  const r = etat.recetteFiche;
+  const etapes = etapesDe(r);
+  const n = etapes.length;
+  $('compteurCuisine').textContent = 'Étape ' + (etapeCuisine + 1) + ' / ' + n;
+  $('barresCuisine').replaceChildren(...etapes.map((_, i) => el('span', { classe: i <= etapeCuisine ? 'faite' : '' })));
+  $('texteCuisine').textContent = etapes[etapeCuisine];
+  $('texteCuisine').scrollTop = 0;
+  $('boutonEtapePrecedente').disabled = etapeCuisine === 0;
+  $('boutonEtapeSuivante').textContent = etapeCuisine < n - 1 ? 'Suivante' : 'Terminé';
+  // Ingrédients pour le nombre de portions choisi dans la fiche
+  const base = r.nb_portions ? Number(r.nb_portions) : null;
+  const facteur = base ? etat.portionsFiche / base : 1;
+  $('ingredientsCuisine').replaceChildren(...r.lignes
+    .map((l) => ({ l, a: etat.aliments.find((x) => x.id === l.aliment_id) }))
+    .filter((x) => x.a)
+    .map(({ l, a }) => el('li', {}, [
+      el('span', { texte: a.nom }),
+      el('strong', { texte: qteLisible(Number(l.quantite) * facteur) + ' ' + a.unite })
+    ])));
+}
+
+$('boutonModeCuisine').addEventListener('click', ouvrirCuisine);
+$('boutonFermerCuisine').addEventListener('click', () => $('feuilleCuisine').close());
+$('feuilleCuisine').addEventListener('close', libererEcran);
+$('boutonEtapePrecedente').addEventListener('click', () => {
+  if (etapeCuisine > 0) etapeCuisine--;
+  afficherCuisine();
+});
+$('boutonEtapeSuivante').addEventListener('click', () => {
+  if (etapeCuisine < etapesDe(etat.recetteFiche).length - 1) { etapeCuisine++; afficherCuisine(); }
+  else $('feuilleCuisine').close();
+});
+$('boutonIngredientsCuisine').addEventListener('click', () => {
+  const ouvrir = $('ingredientsCuisine').hidden;
+  $('ingredientsCuisine').hidden = !ouvrir;
+  $('boutonIngredientsCuisine').setAttribute('aria-expanded', ouvrir);
+  $('boutonIngredientsCuisine').textContent = ouvrir ? 'Masquer les ingrédients' : 'Voir les ingrédients';
+});
+
+// ---------- Apparence : Automatique / Clair / Sombre (gardée sur ce téléphone) ----------
+
+const CLE_APPARENCE = 'buonapp-apparence';   // pas « buonapp: » : on la garde après la déconnexion
+const TEXTES_APPARENCE = {
+  auto: 'Suit le réglage de l\'iPhone. Gardé sur ce téléphone.',
+  clair: 'Toujours en clair, même si l\'iPhone est en sombre. Gardé sur ce téléphone.',
+  sombre: 'Toujours en sombre, même si l\'iPhone est en clair. Gardé sur ce téléphone.'
+};
+
+function lireApparence() {
+  try {
+    const a = localStorage.getItem(CLE_APPARENCE);
+    return a === 'clair' || a === 'sombre' ? a : 'auto';
+  } catch (e) { return 'auto'; }
+}
+
+function appliquerApparence(a) {
+  const racine = document.documentElement;
+  if (a === 'auto') delete racine.dataset.theme;
+  else racine.dataset.theme = a;
+  // Couleur de la barre du haut et des contrôles natifs
+  document.querySelector('meta[name="color-scheme"]').content = a === 'auto' ? 'light dark' : a === 'clair' ? 'light' : 'dark';
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const sombre = meta.media.includes('dark');
+    meta.content = a === 'clair' ? '#F2F2F4' : a === 'sombre' ? '#0F1012' : (sombre ? '#0F1012' : '#F2F2F4');
+  }
+  for (const b of $('choixApparence').querySelectorAll('[data-apparence]')) {
+    const actif = b.dataset.apparence === a;
+    b.classList.toggle('actif', actif);
+    b.setAttribute('aria-checked', actif);
+  }
+  $('texteApparence').textContent = TEXTES_APPARENCE[a];
+}
+
+for (const b of $('choixApparence').querySelectorAll('[data-apparence]')) {
+  b.addEventListener('click', () => {
+    const a = b.dataset.apparence;
+    try {
+      if (a === 'auto') localStorage.removeItem(CLE_APPARENCE);
+      else localStorage.setItem(CLE_APPARENCE, a);
+    } catch (e) { console.warn('Apparence non gardée', e); }
+    appliquerApparence(a);
+  });
+}
+appliquerApparence(lireApparence());
 
 // ---------- Modifier / supprimer une ligne ----------
 
