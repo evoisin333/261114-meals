@@ -1924,6 +1924,7 @@ function afficherPhotoFormulaire() {
   }
   const aUnePhoto = !!etat.photoNouvelle || !!(r && r.photo && !etat.photoRetiree);
   $('boutonRetirerPhoto').hidden = !aUnePhoto;
+  $('iconePhotoRecette').hidden = !!r;   // nouvelle recette : un appareil photo à la place de l'initiale
 }
 
 async function photoChoisie(champ) {

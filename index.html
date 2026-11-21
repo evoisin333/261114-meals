@@ -357,10 +357,19 @@
     <div id="zonePhotoRecette" class="large zone-photo">
       <img id="imagePhotoRecette" alt="" hidden>
       <span id="lettrePhotoRecette" class="lettre" aria-hidden="true"></span>
+      <svg id="iconePhotoRecette" class="icone-photo-vide" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      <button type="button" id="boutonRetirerPhoto" class="bouton-rond retirer-photo" aria-label="Retirer la photo" hidden>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
       <div class="boutons-photo">
-        <label class="pilule pilule-photo">Prendre une photo<input id="photoPrendre" type="file" accept="image/*" capture="environment" class="visuellement-cache"></label>
-        <label class="pilule pilule-photo">Choisir<input id="photoChoisir" type="file" accept="image/*" class="visuellement-cache"></label>
-        <button type="button" id="boutonRetirerPhoto" class="pilule pilule-photo" hidden>Retirer</button>
+        <label class="bouton-photo">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          Prendre une photo<input id="photoPrendre" type="file" accept="image/*" capture="environment" class="visuellement-cache">
+        </label>
+        <label class="bouton-photo">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 18l5-5 3 3 2-2 4 4"/></svg>
+          Choisir<input id="photoChoisir" type="file" accept="image/*" class="visuellement-cache">
+        </label>
       </div>
     </div>
     <label class="large">Nom <input id="recetteNom" maxlength="120" autocomplete="off"></label>

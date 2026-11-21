@@ -419,7 +419,18 @@ button.puce { border: 1px dashed var(--bord); background: none; }
 .zone-photo { position: relative; height: 180px; border-radius: 18px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .zone-photo .lettre { font-size: 56px; }
 .boutons-photo { position: absolute; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 1; }
-.pilule-photo { display: inline-flex; align-items: center; height: 38px; background: var(--carte); border-color: var(--carte); color: var(--texte); font-size: 14px; cursor: pointer; }
+/* Boutons sur la photo : couleurs inversées (lisibles en clair et en sombre) */
+.form-aliment .bouton-photo, .bouton-photo {
+  display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px;
+  height: 40px; padding: 0 16px; border-radius: 20px; background: var(--texte); color: var(--fond);
+  font-size: 14px; font-weight: 700; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); cursor: pointer;
+}
+.bouton-photo svg, .icone-photo-vide { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bouton-photo svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.icone-photo-vide { width: 44px; height: 44px; color: var(--lettre); margin-bottom: 40px; }
+.icone-photo-vide[hidden] { display: none; }
+.retirer-photo { position: absolute; top: 10px; right: 10px; z-index: 1; width: 36px; height: 36px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); }
+.retirer-photo svg { width: 16px; height: 16px; }
 .form-aliment textarea {
   width: 100%; min-height: 44px; border-radius: 12px; border: 1px solid var(--bord); background: var(--carte); padding: 10px 12px;
   font: inherit; font-size: 16px; color: var(--texte); resize: none; line-height: 1.4;
