@@ -44,6 +44,10 @@ const etat = {
   recetteFiche: null,   // recette affichée dans la fiche
   portionsFiche: null,  // nombre de portions choisi dans la fiche (affichage seulement)
   encodageDirect: false, // feuille d'ajout ouverte depuis une fiche : aujourd'hui, moment au choix
+  photoNouvelle: null,  // photo choisie dans le formulaire (déjà réduite), pas encore envoyée
+  photoRetiree: false,  // « Retirer » touché dans le formulaire
+  etapesEdition: [],    // étapes en cours d'écriture (textes)
+  carnetsEdition: new Set(), // carnets cochés dans le formulaire
   ouvert: null,         // moment déplié
   momentAjout: null,    // moment où on ajoute
   alimentChoisi: null,
@@ -111,6 +115,7 @@ function normaliser(texte) {
 function el(balise, attributs = {}, enfants = []) {
   const e = document.createElement(balise);
   for (const [cle, valeur] of Object.entries(attributs)) {
+    if (valeur === null || valeur === undefined) continue;   // attribut absent
     if (cle === 'texte') e.textContent = valeur;
     else if (cle === 'classe') e.className = valeur;
     else if (cle.startsWith('on')) e.addEventListener(cle.slice(2), valeur);
@@ -268,6 +273,7 @@ $('boutonDeconnexion').addEventListener('click', async () => {
   if (lectureSeule()) return;
   await client.auth.signOut({ scope: 'local' });   // ce téléphone seulement
   copie.vider();                                    // la copie des données part avec
+  viderPhotos();
   $('feuilleProfil').close();
   montrerConnexion();
 });
@@ -1122,11 +1128,26 @@ function ouvrirRecette(r) {
   $('recetteNom').value = r ? r.nom : '';
   $('recettePortions').value = r ? enTexte(r.nb_portions) : '';
   $('recettePoids').value = r ? enTexte(r.poids_cuit) : '';
+  $('recettePrep').value = r && r.prep_min != null ? String(r.prep_min) : '';
+  $('recetteCuisson').value = r && r.cuisson_min != null ? String(r.cuisson_min) : '';
+  $('recetteSource').value = r && r.source_url ? r.source_url : '';
+  $('recetteNotes').value = r && r.notes ? r.notes : '';
+  etat.etapesEdition = r && r.etapes ? r.etapes.slice() : [];
+  etat.photoNouvelle = null;
+  etat.photoRetiree = false;
+  const dejaRangee = r ? etat.carnetRecettes.filter((l) => l.recette_id === r.id).map((l) => l.carnet_id) : [];
+  etat.carnetsEdition = new Set(dejaRangee);
+  // Nouvelle recette depuis un carnet que je peux modifier : déjà cochée dans ce carnet
+  if (!r && peutModifierCarnet(etat.carnetOuvert)) etat.carnetsEdition.add(etat.carnetOuvert.id);
+  afficherPhotoFormulaire();
+  afficherEtapes();
+  afficherCarnetsFormulaire();
   etat.ingredients = r
     ? r.lignes.map((l) => ({ aliment: etat.aliments.find((a) => a.id === l.aliment_id), quantite: enTexte(l.quantite) }))
         .filter((i) => i.aliment)
     : [];
-  for (const champ of $('formRecette').querySelectorAll('input')) champ.disabled = lecture;
+  for (const champ of $('formRecette').querySelectorAll('input, textarea')) champ.disabled = lecture;
+  for (const id of ['zonePhotoRecette', 'zoneCarnetsRecette', 'boutonAjouterEtape']) if (lecture) $(id).hidden = true;
   $('zoneAjoutIngredient').hidden = lecture;
   $('boutonsIngredient').hidden = lecture;
   $('boutonEnregistrerRecette').hidden = lecture;
@@ -1228,6 +1249,30 @@ $('formRecette').addEventListener('submit', async (ev) => {
     return message('Portions et poids : des nombres plus grands que 0.');
   }
   if (etat.ingredients.length === 0) return message('Ajoute au moins un ingrédient.');
+  const minutes = (texte, nomChamp) => {
+    const t = texte.trim();
+    if (!t) return { ok: true, valeur: null };
+    if (!/^\d{1,4}$/.test(t) || Number(t) > 1440) return { ok: false, texte: nomChamp + ' : un nombre de minutes entre 0 et 1 440.' };
+    return { ok: true, valeur: Number(t) };
+  };
+  const prep = minutes($('recettePrep').value, 'Préparation');
+  if (!prep.ok) return message(prep.texte);
+  const cuisson = minutes($('recetteCuisson').value, 'Cuisson');
+  if (!cuisson.ok) return message(cuisson.texte);
+  let source_url = $('recetteSource').value.trim();
+  if (source_url && !/^[a-z][a-z0-9+.-]*:/i.test(source_url)) source_url = 'https://' + source_url;   // « www.… » tapé sans https://
+  if (source_url && (!/^https:\/\/\S+$/i.test(source_url) || source_url.length > 500)) {
+    return message('Le lien de la source doit commencer par https:// (500 caractères au plus).');
+  }
+  const etapes = etat.etapesEdition.map((e) => e.trim()).filter(Boolean);
+  if (etapes.length > 40) return message('40 étapes au plus.');
+  if (etapes.join('').length > 20000) return message('Étapes trop longues (20 000 caractères au plus en tout).');
+  const notes = $('recetteNotes').value.trim();
+  if (notes.length > 2000) return message('Notes : 2 000 caractères au plus.');
+  const champsRecette = {
+    nom, nb_portions, poids_cuit, prep_min: prep.valeur, cuisson_min: cuisson.valeur,
+    source_url: source_url || null, etapes, notes: notes || null
+  };
   const lignes = [];
   for (const i of etat.ingredients) {
     const q = lirePositif(i.quantite, 50000);
@@ -1240,11 +1285,11 @@ $('formRecette').addEventListener('submit', async (ev) => {
     // 1) La recette
     let id;
     if (r) {
-      const { error } = await client.from('recettes').update({ nom, nb_portions, poids_cuit }).eq('id', r.id);
+      const { error } = await client.from('recettes').update(champsRecette).eq('id', r.id);
       if (error) throw error;
       id = r.id;
     } else {
-      const { data, error } = await client.from('recettes').insert({ nom, nb_portions, poids_cuit }).select('id').single();
+      const { data, error } = await client.from('recettes').insert(champsRecette).select('id').single();
       if (error) throw error;
       id = data.id;
     }
@@ -1263,9 +1308,20 @@ $('formRecette').addEventListener('submit', async (ev) => {
         : await client.from('recette_ingredients').insert({ recette_id: id, ...n });
       if (error) throw error;
     }
-    await chargerRecettes();
+    // 3) Les carnets cochés (seulement ceux que je peux modifier)
+    await enregistrerCarnetsRecette(id);
+    // 4) La photo : en dernier, la recette est déjà enregistrée si l'envoi échoue
+    let photoRatee = false;
+    try {
+      await enregistrerPhoto(id, r ? r.photo : null);
+    } catch (e) {
+      console.error(e);
+      photoRatee = true;
+    }
+    await Promise.all([chargerRecettes(), chargerCarnets()]);
     $('feuilleRecette').close();
-    afficherBandeau(r ? 'Recette modifiée (le journal passé ne change pas)' : 'Recette ajoutée');
+    if (photoRatee) afficherBandeau('Recette enregistrée, mais la photo n\'est pas passée : réessaie dans « Modifier »');
+    else afficherBandeau(r ? 'Recette modifiée (le journal passé ne change pas)' : 'Recette ajoutée');
     // On montre la recette enregistrée
     const enregistree = etat.recettes.find((x) => x.id === id);
     if (enregistree) ouvrirFicheRecette(enregistree);
@@ -1287,7 +1343,12 @@ $('boutonSupprimerRecette').addEventListener('click', async () => {
     bouton.textContent = 'Confirmer la suppression';
     return;
   }
-  const { error } = await client.from('recettes').delete().eq('id', etat.recetteOuverte.id);
+  const aSupprimer = etat.recetteOuverte;
+  if (aSupprimer.photo) {
+    const { error: e } = await client.storage.from(BUCKET_PHOTOS).remove([aSupprimer.photo]);
+    if (e) return erreur(e);
+  }
+  const { error } = await client.from('recettes').delete().eq('id', aSupprimer.id);
   if (error) return erreur(error);
   await Promise.all([chargerRecettes(), chargerCarnets()]).catch(erreur);
   etat.recetteFiche = null;
@@ -1332,8 +1393,11 @@ const texteNb = (n) => n + (n > 1 ? ' recettes' : ' recette');
 const teinte = (r) => 'teinte-' + (Number(r.id) % 6);
 
 function vignette(r, classe) {
+  const image = el('img', { alt: '', hidden: '' });
+  if (r.photo) montrerPhoto(image, r.photo);
   return el('span', { classe: classe + ' ' + teinte(r), 'aria-hidden': 'true' }, [
-    el('span', { classe: 'lettre', texte: r.nom.charAt(0).toUpperCase() })
+    el('span', { classe: 'lettre', texte: r.nom.charAt(0).toUpperCase() }),
+    image
   ]);
 }
 
@@ -1647,6 +1711,9 @@ function afficherFiche() {
 
   $('photoFiche').className = 'photo-fiche ' + teinte(r);
   $('lettreFiche').textContent = r.nom.charAt(0).toUpperCase();
+  $('imageFiche').hidden = true;
+  $('imageFiche').removeAttribute('src');
+  if (r.photo) montrerPhoto($('imageFiche'), r.photo);
   $('nomFiche').textContent = r.nom;
   $('auteurFiche').hidden = r.cree_par !== etat.moi;
   $('boutonModifierRecette').hidden = r.cree_par !== etat.moi;
@@ -1772,6 +1839,213 @@ $('boutonEncoderRecette').addEventListener('click', () => {
   $('boutonRetour').hidden = true;
   choisirAliment(r);
 });
+
+// ---------- Recettes v2 : photos ----------
+
+const BUCKET_PHOTOS = 'photos-recettes';
+const CACHE_PHOTOS = 'buonapp-photos';   // gardé par sw.js lors des mises à jour
+const urlsPhotos = new Map();            // chemin → promesse d'adresse locale (blob:)
+
+// Une photo n'est téléchargée qu'une fois par téléphone : son chemin change à chaque nouvelle photo,
+// donc la copie gardée ne devient jamais fausse.
+function urlPhoto(chemin) {
+  if (urlsPhotos.has(chemin)) return urlsPhotos.get(chemin);
+  const promesse = (async () => {
+    const cle = new URL('photo-cache/' + chemin, location.href).href;
+    let cache = null;
+    try { cache = await caches.open(CACHE_PHOTOS); } catch (e) { cache = null; }
+    if (cache) {
+      const gardee = await cache.match(cle);
+      if (gardee) return URL.createObjectURL(await gardee.blob());
+    }
+    const { data, error } = await client.storage.from(BUCKET_PHOTOS).download(chemin);
+    if (error) throw error;
+    if (cache) cache.put(cle, new Response(data, { headers: { 'Content-Type': 'image/jpeg' } })).catch(() => {});
+    return URL.createObjectURL(data);
+  })();
+  urlsPhotos.set(chemin, promesse);
+  promesse.catch(() => urlsPhotos.delete(chemin));   // on réessaiera la prochaine fois
+  return promesse;
+}
+
+// Affiche la photo dans <img> quand elle est prête (la couleur et l'initiale restent en attendant)
+function montrerPhoto(image, chemin) {
+  image.dataset.chemin = chemin;
+  urlPhoto(chemin).then((url) => {
+    if (image.dataset.chemin !== chemin) return;   // entre-temps, l'image affiche autre chose
+    image.src = url;
+    image.hidden = false;
+  }).catch((e) => console.warn('Photo indisponible', e));
+}
+
+function viderPhotos() {
+  urlsPhotos.clear();
+  if ('caches' in window) caches.delete(CACHE_PHOTOS).catch(() => {});
+}
+
+// Réduit la photo sur le téléphone : 1 200 px au plus, JPEG (moins de 2 Mo)
+async function reduirePhoto(fichier) {
+  const adresse = URL.createObjectURL(fichier);
+  try {
+    const image = new Image();
+    image.src = adresse;
+    await image.decode();
+    const echelle = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+    const largeur = Math.max(1, Math.round(image.naturalWidth * echelle));
+    const hauteur = Math.max(1, Math.round(image.naturalHeight * echelle));
+    const toile = document.createElement('canvas');
+    toile.width = largeur;
+    toile.height = hauteur;
+    toile.getContext('2d').drawImage(image, 0, 0, largeur, hauteur);
+    for (const qualite of [0.8, 0.6, 0.4]) {
+      const blob = await new Promise((ok) => toile.toBlob(ok, 'image/jpeg', qualite));
+      if (blob && blob.size <= 2 * 1024 * 1024) return blob;
+    }
+    throw new Error('photo trop lourde');
+  } finally {
+    URL.revokeObjectURL(adresse);
+  }
+}
+
+function afficherPhotoFormulaire() {
+  const r = etat.recetteOuverte;
+  const image = $('imagePhotoRecette');
+  $('zonePhotoRecette').className = 'large zone-photo ' + (r ? teinte(r) : 'teinte-5');
+  $('lettrePhotoRecette').textContent = r ? r.nom.charAt(0).toUpperCase() : '';
+  image.hidden = true;
+  image.removeAttribute('src');
+  delete image.dataset.chemin;
+  if (etat.photoNouvelle) {
+    image.dataset.chemin = 'nouvelle';
+    image.src = URL.createObjectURL(etat.photoNouvelle);
+    image.hidden = false;
+  } else if (r && r.photo && !etat.photoRetiree) {
+    montrerPhoto(image, r.photo);
+  }
+  const aUnePhoto = !!etat.photoNouvelle || !!(r && r.photo && !etat.photoRetiree);
+  $('boutonRetirerPhoto').hidden = !aUnePhoto;
+}
+
+async function photoChoisie(champ) {
+  const fichier = champ.files && champ.files[0];
+  champ.value = '';   // pour pouvoir rechoisir la même photo
+  if (!fichier) return;
+  try {
+    etat.photoNouvelle = await reduirePhoto(fichier);
+    etat.photoRetiree = false;
+    afficherPhotoFormulaire();
+  } catch (e) {
+    console.error(e);
+    $('messageRecette').textContent = 'Cette photo n\'a pas pu être lue. Essaie une autre photo.';
+  }
+}
+$('photoPrendre').addEventListener('change', () => photoChoisie($('photoPrendre')));
+$('photoChoisir').addEventListener('change', () => photoChoisie($('photoChoisir')));
+$('boutonRetirerPhoto').addEventListener('click', () => {
+  etat.photoNouvelle = null;
+  etat.photoRetiree = true;
+  afficherPhotoFormulaire();
+});
+
+// Envoie la nouvelle photo (ou retire l'ancienne) une fois la recette enregistrée
+async function enregistrerPhoto(id, ancienne) {
+  if (etat.photoNouvelle) {
+    const chemin = id + '/' + crypto.randomUUID() + '.jpg';   // nouveau nom à chaque photo
+    const { error } = await client.storage.from(BUCKET_PHOTOS)
+      .upload(chemin, etat.photoNouvelle, { contentType: 'image/jpeg', upsert: false });
+    if (error) throw error;
+    const { error: e2 } = await client.from('recettes').update({ photo: chemin }).eq('id', id);
+    if (e2) {
+      await client.storage.from(BUCKET_PHOTOS).remove([chemin]);
+      throw e2;
+    }
+  } else if (etat.photoRetiree && ancienne) {
+    const { error } = await client.from('recettes').update({ photo: null }).eq('id', id);
+    if (error) throw error;
+  } else {
+    return;
+  }
+  // L'ancienne photo ne sert plus : on l'efface (sans bloquer si ça rate)
+  if (ancienne) {
+    const { error } = await client.storage.from(BUCKET_PHOTOS).remove([ancienne]);
+    if (error) console.warn('Ancienne photo non effacée', error);
+  }
+}
+
+// ---------- Recettes v2 : étapes et carnets dans le formulaire ----------
+
+// Hauteur d'une zone de texte selon son contenu
+function ajusterHauteur(zone) {
+  zone.style.height = 'auto';
+  zone.style.height = zone.scrollHeight + 'px';
+}
+
+function afficherEtapes(focusIndex) {
+  const liste = etat.etapesEdition;
+  $('listeEtapes').replaceChildren(...liste.map((texte, i) => {
+    const zone = el('textarea', { rows: '2', maxlength: '1000', 'aria-label': 'Étape ' + (i + 1) });
+    zone.value = texte;
+    zone.addEventListener('input', () => { liste[i] = zone.value; ajusterHauteur(zone); });
+    const deplacer = (sens) => {
+      const j = i + sens;
+      [liste[i], liste[j]] = [liste[j], liste[i]];
+      afficherEtapes();
+    };
+    return el('li', {}, [
+      el('span', { classe: 'numero', 'aria-hidden': 'true', texte: String(i + 1) }),
+      zone,
+      el('span', { classe: 'outils-etape' }, [
+        el('button', { type: 'button', 'aria-label': 'Monter l\'étape ' + (i + 1), texte: '↑', disabled: i === 0 ? '' : null, onclick: () => deplacer(-1) }),
+        el('button', { type: 'button', 'aria-label': 'Descendre l\'étape ' + (i + 1), texte: '↓', disabled: i === liste.length - 1 ? '' : null, onclick: () => deplacer(1) }),
+        el('button', { type: 'button', classe: 'retirer', 'aria-label': 'Retirer l\'étape ' + (i + 1), texte: '×', onclick: () => { liste.splice(i, 1); afficherEtapes(); } })
+      ])
+    ]);
+  }));
+  for (const zone of $('listeEtapes').querySelectorAll('textarea')) ajusterHauteur(zone);
+  $('boutonAjouterEtape').disabled = liste.length >= 40;
+  if (focusIndex != null) $('listeEtapes').querySelectorAll('textarea')[focusIndex].focus();
+}
+$('boutonAjouterEtape').addEventListener('click', () => {
+  etat.etapesEdition.push('');
+  afficherEtapes(etat.etapesEdition.length - 1);
+});
+
+// Carnets que je peux remplir : les communs (si je les gère) puis les miens
+function carnetsModifiables() {
+  return [
+    ...(etat.gereCommuns ? etat.carnets.filter((c) => c.commun) : []),
+    ...etat.carnets.filter((c) => !c.commun && c.proprietaire === etat.moi)
+  ];
+}
+
+function afficherCarnetsFormulaire() {
+  const carnets = carnetsModifiables();
+  $('zoneCarnetsRecette').hidden = carnets.length === 0;
+  $('choixCarnetsRecette').replaceChildren(...carnets.map((c) => {
+    const coche = etat.carnetsEdition.has(c.id);
+    return el('button', {
+      type: 'button', classe: 'puce choix' + (coche ? ' coche' : ''), 'aria-pressed': coche,
+      texte: (coche ? '✓ ' : '') + c.nom + (c.commun ? '' : ' · perso'),
+      onclick: () => {
+        if (etat.carnetsEdition.has(c.id)) etat.carnetsEdition.delete(c.id);
+        else etat.carnetsEdition.add(c.id);
+        afficherCarnetsFormulaire();
+      }
+    });
+  }));
+}
+
+async function enregistrerCarnetsRecette(id) {
+  for (const c of carnetsModifiables()) {
+    const voulu = etat.carnetsEdition.has(c.id);
+    const dedans = estDans(c.id, id);
+    if (voulu === dedans) continue;
+    const { error } = voulu
+      ? await client.from('carnet_recettes').insert({ carnet_id: c.id, recette_id: id })
+      : await client.from('carnet_recettes').delete().eq('carnet_id', c.id).eq('recette_id', id);
+    if (error && error.code !== '23505') throw error;
+  }
+}
 
 // ---------- Modifier / supprimer une ligne ----------
 

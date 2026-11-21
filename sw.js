@@ -17,7 +17,8 @@ self.addEventListener('install', (ev) => {
 self.addEventListener('activate', (ev) => {
   ev.waitUntil(
     caches.keys()
-      .then((cles) => Promise.all(cles.filter((c) => c !== CACHE).map((c) => caches.delete(c))))
+      // On garde les photos des recettes (cache « buonapp-photos », rempli par app.js)
+      .then((cles) => Promise.all(cles.filter((c) => c !== CACHE && c !== 'buonapp-photos').map((c) => caches.delete(c))))
       .then(() => self.clients.claim())
   );
 });

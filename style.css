@@ -410,3 +410,34 @@ button.puce { border: 1px dashed var(--bord); background: none; }
 }
 .liste-cases button[aria-pressed="true"] .case { background: var(--texte); border-color: var(--texte); color: var(--fond); }
 .champ-select select { flex: 1 1 auto; min-width: 0; border: none; background: none; text-align: right; text-align-last: right; font: inherit; font-size: 18px; font-weight: 700; color: var(--texte); -webkit-appearance: none; appearance: none; }
+
+/* Recettes v2 : photos et formulaire */
+.fond-photo img, .tuile img, .photo-fiche img, .zone-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mosaique .tuile { position: relative; overflow: hidden; }
+.photo-fiche { overflow: hidden; }
+.photo-fiche .flottant, .photo-fiche .actions-photo { z-index: 1; }
+.zone-photo { position: relative; height: 180px; border-radius: 18px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.zone-photo .lettre { font-size: 56px; }
+.boutons-photo { position: absolute; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 1; }
+.pilule-photo { display: inline-flex; align-items: center; height: 38px; background: var(--carte); border-color: var(--carte); color: var(--texte); font-size: 14px; cursor: pointer; }
+.form-aliment textarea {
+  width: 100%; min-height: 44px; border-radius: 12px; border: 1px solid var(--bord); background: var(--carte); padding: 10px 12px;
+  font: inherit; font-size: 16px; color: var(--texte); resize: none; line-height: 1.4;
+}
+.zone-carnets-recette { display: flex; flex-direction: column; gap: 8px; }
+.choix-carnets { display: flex; flex-wrap: wrap; gap: 8px; }
+.puce.choix { height: 34px; border: 1px solid var(--bord); background: transparent; color: var(--texte); }
+.puce.choix.coche { background: var(--texte); color: var(--fond); border-color: var(--texte); }
+.liste-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.liste-etapes:empty { display: none; }
+.liste-etapes li { display: flex; align-items: flex-start; gap: 8px; }
+.liste-etapes .numero {
+  flex: 0 0 auto; width: 26px; height: 26px; margin-top: 9px; border-radius: 13px; background: var(--texte); color: var(--fond);
+  font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.liste-etapes textarea { flex: 1 1 auto; min-width: 0; }
+.outils-etape { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+.outils-etape button { width: 36px; height: 30px; border: none; border-radius: 10px; background: var(--carte2); font-size: 15px; font-weight: 700; color: var(--texte); }
+.outils-etape button:disabled { opacity: 0.3; }
+.outils-etape .retirer { color: var(--danger); }
+.bouton-petit { min-height: 44px; font-size: 15px; }

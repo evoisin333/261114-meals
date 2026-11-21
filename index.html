@@ -13,7 +13,7 @@
 <title>Buon app'</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icones/icone-180.png">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -183,6 +183,7 @@
   <section id="vueFiche" class="vue-recettes" hidden>
     <div id="photoFiche" class="photo-fiche">
       <span id="lettreFiche" class="lettre" aria-hidden="true"></span>
+      <img id="imageFiche" alt="" hidden>
       <button id="boutonRetourFiche" class="bouton-rond flottant" aria-label="Retour">
         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
@@ -353,10 +354,26 @@
   </header>
   <p id="infoRecette" class="info-fiche" hidden>Recette créée par quelqu'un d'autre : lecture seule.</p>
   <form id="formRecette" class="form-aliment" novalidate>
+    <div id="zonePhotoRecette" class="large zone-photo">
+      <img id="imagePhotoRecette" alt="" hidden>
+      <span id="lettrePhotoRecette" class="lettre" aria-hidden="true"></span>
+      <div class="boutons-photo">
+        <label class="pilule pilule-photo">Prendre une photo<input id="photoPrendre" type="file" accept="image/*" capture="environment" class="visuellement-cache"></label>
+        <label class="pilule pilule-photo">Choisir<input id="photoChoisir" type="file" accept="image/*" class="visuellement-cache"></label>
+        <button type="button" id="boutonRetirerPhoto" class="pilule pilule-photo" hidden>Retirer</button>
+      </div>
+    </div>
     <label class="large">Nom <input id="recetteNom" maxlength="120" autocomplete="off"></label>
     <label>Nombre de portions <input id="recettePortions" inputmode="decimal" autocomplete="off"></label>
     <label>Poids du plat cuit (g) <input id="recettePoids" inputmode="decimal" placeholder="facultatif" autocomplete="off"></label>
     <p class="large discret">Le poids du plat cuit est facultatif : il permet d'encoder ta part en grammes (pèse le plat sans la casserole).</p>
+    <label>Préparation (min) <input id="recettePrep" inputmode="numeric" placeholder="facultatif" autocomplete="off"></label>
+    <label>Cuisson (min) <input id="recetteCuisson" inputmode="numeric" placeholder="facultatif" autocomplete="off"></label>
+    <label class="large">Source (lien) <input id="recetteSource" type="url" inputmode="url" maxlength="500" placeholder="https://…" autocomplete="off" autocapitalize="off"></label>
+    <div id="zoneCarnetsRecette" class="large zone-carnets-recette">
+      <h3>Carnets</h3>
+      <div id="choixCarnetsRecette" class="choix-carnets"></div>
+    </div>
     <h3 class="large">Ingrédients</h3>
     <ul id="listeIngredients" class="large liste-ingredients"></ul>
     <label class="large champ-recherche" id="zoneAjoutIngredient">
@@ -369,6 +386,10 @@
       <button type="button" id="boutonNouvelIngredient" class="bouton-secondaire">Nouvel aliment</button>
     </div>
     <p id="totauxRecette" class="large apercu"></p>
+    <h3 class="large">Étapes</h3>
+    <ol id="listeEtapes" class="large liste-etapes"></ol>
+    <button type="button" id="boutonAjouterEtape" class="large bouton-secondaire bouton-petit">+ Étape</button>
+    <label class="large">Notes <textarea id="recetteNotes" rows="3" maxlength="2000" placeholder="facultatif"></textarea></label>
     <p id="messageRecette" class="large message-erreur" role="alert"></p>
     <button type="submit" id="boutonEnregistrerRecette" class="large bouton-principal">Enregistrer la recette</button>
     <button type="button" id="boutonSupprimerRecette" class="large bouton-danger" hidden>Supprimer la recette</button>
@@ -457,7 +478,7 @@
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
         integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
         crossorigin="anonymous"></script>
-<script src="config.js?v=9"></script>
-<script src="app.js?v=9"></script>
+<script src="config.js?v=10"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
