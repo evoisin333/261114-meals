@@ -13,7 +13,7 @@
 <title>Buon app'</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icones/icone-180.png">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -124,15 +124,117 @@
   <p id="texteCheatSemaine" class="discret texte-centre"></p>
 </main>
 
-<!-- Écran des recettes -->
+<!-- Écran des recettes : carnets → recettes d'un carnet → fiche -->
 <main id="ecranRecettes" hidden>
-  <header class="entete-recettes">
-    <h1>Recettes</h1>
-    <button id="boutonNouvelleRecette" class="pilule actif ecrit">+ Nouvelle</button>
-  </header>
-  <p class="discret">Communes aux 3. Pour encoder une recette : touche + sur un repas et cherche son nom.</p>
-  <ul id="listeRecettes" class="liste-resultats"></ul>
-  <p id="aucuneRecette" class="discret texte-centre" hidden>Pas encore de recette.</p>
+  <section id="vueCarnets" class="vue-recettes">
+    <header class="entete-recettes">
+      <h1>Recettes</h1>
+      <button id="boutonNouvelleRecette" class="pilule actif ecrit">+ Nouvelle</button>
+    </header>
+    <label class="champ-recherche">
+      <span class="visuellement-cache">Rechercher dans toutes les recettes</span>
+      <input id="rechercheRecettes" type="search" placeholder="Rechercher dans toutes les recettes" autocomplete="off" autocorrect="off" enterkeyhint="search">
+    </label>
+    <div id="zoneCarnets" class="zone-carnets">
+      <div class="segments" role="tablist" aria-label="Carnets">
+        <button id="ongletCommuns" role="tab" data-vue="communs">Communs</button>
+        <button id="ongletMesCarnets" role="tab" data-vue="mes">Mes carnets</button>
+      </div>
+      <div class="ligne-carnets">
+        <span id="sousTitreCarnets" class="discret"></span>
+        <button id="boutonNouveauCarnet" class="pilule pointillee ecrit">+ Carnet</button>
+      </div>
+      <div id="grilleCarnets" class="grille"></div>
+    </div>
+    <div id="grilleRecherche" class="grille" hidden></div>
+    <p id="aucunResultat" class="discret texte-centre" hidden>Aucune recette trouvée.</p>
+  </section>
+
+  <section id="vueCarnet" class="vue-recettes" hidden>
+    <div class="ligne-carnets">
+      <button id="boutonRetourCarnets" class="bouton-retour">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Carnets
+      </button>
+      <button id="boutonRenommerCarnet" class="pilule ecrit">Renommer</button>
+    </div>
+    <div>
+      <h1 id="titreCarnet" class="titre-carnet"></h1>
+      <span id="nbCarnet" class="discret"></span>
+    </div>
+    <label class="champ-recherche">
+      <span class="visuellement-cache">Rechercher dans ce carnet</span>
+      <input id="rechercheCarnet" type="search" placeholder="Rechercher dans ce carnet" autocomplete="off" autocorrect="off" enterkeyhint="search">
+    </label>
+    <div class="ligne-carnets">
+      <label class="pilule select-pilule">
+        <span class="visuellement-cache">Trier</span>
+        <select id="triRecettes">
+          <option value="recentes">Trier : récentes</option>
+          <option value="az">Trier : A → Z</option>
+          <option value="kcal">Trier : kcal / portion</option>
+        </select>
+      </label>
+      <button id="boutonRangerIci" class="pilule actif ecrit">+ Recette ici</button>
+    </div>
+    <div id="grilleRecettes" class="grille"></div>
+    <p id="carnetVide" class="discret texte-centre" hidden></p>
+  </section>
+
+  <section id="vueFiche" class="vue-recettes" hidden>
+    <div id="photoFiche" class="photo-fiche">
+      <span id="lettreFiche" class="lettre" aria-hidden="true"></span>
+      <button id="boutonRetourFiche" class="bouton-rond flottant" aria-label="Retour">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="actions-photo">
+        <button id="boutonFavoriRecette" class="bouton-rond flottant etoile ecrit" aria-pressed="false" aria-label="Ajouter aux favoris">★</button>
+        <button id="boutonModifierRecette" class="pilule flottant ecrit">Modifier</button>
+      </div>
+    </div>
+    <div class="tete-fiche">
+      <h1 id="nomFiche"></h1>
+      <span id="auteurFiche" class="discret" hidden>Ta recette</span>
+      <div class="puces">
+        <span id="pucesCarnets" class="puces"></span>
+        <button id="boutonRanger" class="puce pointillee ecrit">+ Ranger</button>
+      </div>
+    </div>
+    <div id="infosFiche" class="infos-fiche" hidden></div>
+    <section class="carte">
+      <div class="carte-titre">
+        <div class="pile-titre"><span id="refFiche" class="discret">Par portion</span><strong id="kcalFiche" class="kcal-fiche"></strong></div>
+        <span id="baseFiche" class="discret texte-droite"></span>
+      </div>
+      <div class="macros-fiche">
+        <div><strong id="pFiche" class="c-p"></strong><span class="discret">Protéines</span></div>
+        <div><strong id="gFiche" class="c-g"></strong><span class="discret">Glucides</span></div>
+        <div><strong id="lFiche" class="c-l"></strong><span class="discret">Lipides</span></div>
+        <div><strong id="fFiche" class="c-f"></strong><span class="discret">Fibres</span></div>
+      </div>
+    </section>
+    <button id="boutonEncoderRecette" class="bouton-principal ecrit">Encoder une portion</button>
+    <section class="carte">
+      <div class="carte-titre">
+        <h2>Ingrédients</h2>
+        <div id="reglagePortions" class="reglage-portions" role="group" aria-label="Nombre de portions">
+          <button id="boutonMoinsPortion" aria-label="Une portion de moins">−</button>
+          <span id="textePortions" aria-live="polite"></span>
+          <button id="boutonPlusPortion" aria-label="Une portion de plus">+</button>
+        </div>
+      </div>
+      <ul id="ingredientsFiche" class="liste-fiche"></ul>
+      <p id="noteEchelle" class="discret" hidden>Quantités recalculées pour l'affichage. La recette enregistrée ne change pas.</p>
+      <p id="notePortions" class="discret" hidden>Pas de nombre de portions : ajoute-le dans « Modifier » pour pouvoir changer les quantités.</p>
+    </section>
+    <section id="carteEtapes" class="carte" hidden>
+      <h2>Préparation</h2>
+      <ol id="etapesFiche" class="etapes-fiche"></ol>
+    </section>
+    <section id="carteNotes" class="carte" hidden>
+      <h2>Notes</h2>
+      <p id="notesFiche" class="notes-fiche"></p>
+    </section>
+  </section>
 </main>
 </div>
 
@@ -185,6 +287,9 @@
       <button type="button" class="pilule" data-unite-recette="portion">En portions</button>
       <button type="button" class="pilule" data-unite-recette="g">En grammes</button>
     </div>
+    <label id="zoneMomentTous" class="champ-quantite champ-select" hidden>Moment
+      <select id="choixMomentTous"></select>
+    </label>
     <label class="champ-quantite">Quantité
       <input id="champQuantite" type="text" inputmode="decimal" autocomplete="off">
       <span id="uniteChoisie">g</span>
@@ -250,8 +355,8 @@
   <form id="formRecette" class="form-aliment" novalidate>
     <label class="large">Nom <input id="recetteNom" maxlength="120" autocomplete="off"></label>
     <label>Nombre de portions <input id="recettePortions" inputmode="decimal" autocomplete="off"></label>
-    <label>Poids du plat cuit (g) <input id="recettePoids" inputmode="decimal" autocomplete="off"></label>
-    <p class="large discret">Remplis l'un ou l'autre, ou les deux. Le poids du plat cuit permet d'encoder ta part en grammes (pèse le plat sans la casserole).</p>
+    <label>Poids du plat cuit (g) <input id="recettePoids" inputmode="decimal" placeholder="facultatif" autocomplete="off"></label>
+    <p class="large discret">Le poids du plat cuit est facultatif : il permet d'encoder ta part en grammes (pèse le plat sans la casserole).</p>
     <h3 class="large">Ingrédients</h3>
     <ul id="listeIngredients" class="large liste-ingredients"></ul>
     <label class="large champ-recherche" id="zoneAjoutIngredient">
@@ -268,6 +373,35 @@
     <button type="submit" id="boutonEnregistrerRecette" class="large bouton-principal">Enregistrer la recette</button>
     <button type="button" id="boutonSupprimerRecette" class="large bouton-danger" hidden>Supprimer la recette</button>
   </form>
+</dialog>
+
+<!-- Carnet : créer ou renommer -->
+<dialog id="feuilleCarnet" class="feuille">
+  <header class="entete-feuille">
+    <h2 id="titreFeuilleCarnet">Nouveau carnet</h2>
+    <button class="bouton-texte" data-fermer>Fermer</button>
+  </header>
+  <form id="formCarnet" class="form-aliment" novalidate>
+    <label class="large">Nom du carnet <input id="nomCarnet" maxlength="60" autocomplete="off"></label>
+    <p id="infoCarnet" class="large discret"></p>
+    <p id="messageCarnet" class="large message-erreur" role="alert"></p>
+    <button type="submit" id="boutonEnregistrerCarnet" class="large bouton-principal">Enregistrer</button>
+    <button type="button" id="boutonSupprimerCarnet" class="large bouton-danger" hidden>Supprimer le carnet</button>
+  </form>
+</dialog>
+
+<!-- Ranger : une recette dans des carnets, ou des recettes dans un carnet -->
+<dialog id="feuilleRanger" class="feuille">
+  <header class="entete-feuille">
+    <h2 id="titreRanger">Ranger</h2>
+    <button class="bouton-texte" data-fermer>OK</button>
+  </header>
+  <p id="infoRanger" class="discret"></p>
+  <label id="zoneRechercheRanger" class="champ-recherche">
+    <span class="visuellement-cache">Rechercher une recette</span>
+    <input id="rechercheRanger" type="search" placeholder="Rechercher une recette" autocomplete="off" autocorrect="off">
+  </label>
+  <ul id="listeRanger" class="liste-resultats liste-cases"></ul>
 </dialog>
 
 <!-- Modifier une ligne du journal -->
@@ -323,7 +457,7 @@
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.2.3/dist/iife/ponyfill.js"
         integrity="sha384-ZQvvHKgw7Ktqkui5vapXokyfDpQcnXLZhR9hfFMh8rUQztTRNywKQdQ994308nhY"
         crossorigin="anonymous"></script>
-<script src="config.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

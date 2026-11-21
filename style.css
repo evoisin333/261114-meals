@@ -316,3 +316,97 @@ h1, h2, h3, p { margin: 0; }
   background: var(--cheat); color: #1C1C1E; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 14px;
 }
 body.hors-ligne .ecrit, body.hors-ligne .actions-moment button { opacity: 0.35; }
+
+/* Recettes v2 : carnets, grille, fiche */
+:root { --t0: #EFE3D6; --t1: #E4EEE6; --t2: #E6EBF5; --t3: #F5EBD8; --t4: #F2E1E6; --t5: #E9E9EE; --lettre: rgba(28, 28, 30, 0.35); --etoile: #D9822B; }
+@media (prefers-color-scheme: dark) {
+  :root { --t0: #3A3129; --t1: #27352B; --t2: #283041; --t3: #3B3324; --t4: #3B2830; --t5: #2C2D31; --lettre: rgba(242, 242, 244, 0.4); --etoile: #FFB25B; }
+}
+.teinte-0 { background: var(--t0); } .teinte-1 { background: var(--t1); } .teinte-2 { background: var(--t2); }
+.teinte-3 { background: var(--t3); } .teinte-4 { background: var(--t4); } .teinte-5 { background: var(--t5); }
+.vue-recettes { display: flex; flex-direction: column; gap: 14px; }
+.vue-recettes[hidden] { display: none !important; }
+.zone-carnets { display: flex; flex-direction: column; gap: 14px; }
+.zone-carnets[hidden] { display: none !important; }
+.segments { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: 14px; background: var(--piste); }
+.segments button { height: 38px; border: none; border-radius: 11px; background: transparent; font-size: 14px; font-weight: 500; }
+.segments button.actif { background: var(--carte); font-weight: 700; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.ligne-carnets { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pilule.pointillee, .puce.pointillee { border-style: dashed; color: var(--doux); }
+.grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.grille[hidden] { display: none !important; }
+.carte-recette {
+  display: flex; flex-direction: column; border: none; padding: 0; background: var(--carte); border-radius: 18px;
+  overflow: hidden; text-align: left; min-width: 0;
+}
+.photo-carte { position: relative; display: block; height: 116px; }
+.fond-photo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.lettre { font-size: 40px; font-weight: 800; color: var(--lettre); }
+.badge-favori {
+  position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 14px;
+  background: var(--carte); color: var(--etoile); display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.texte-carte { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px 12px; min-width: 0; }
+.texte-carte strong { font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
+.mosaique { height: 116px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 2px; }
+.mosaique .tuile { display: flex; align-items: center; justify-content: center; }
+.mosaique .tuile .lettre { font-size: 20px; }
+.mosaique .tuile.vide { background: var(--carte2); }
+.mosaique.favoris { display: flex; align-items: center; justify-content: center; background: var(--t3); }
+.etoile-grande { font-size: 36px; color: var(--etoile); }
+.bouton-retour { display: flex; align-items: center; gap: 2px; border: none; background: none; font-size: 16px; font-weight: 600; min-height: 44px; padding: 0; color: var(--p); }
+.bouton-retour svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.titre-carnet { font-size: 28px; overflow-wrap: anywhere; }
+.select-pilule { display: flex; align-items: center; padding: 0 12px; font-weight: 600; }
+.select-pilule select { border: none; background: none; font: inherit; font-size: 14px; color: var(--texte); -webkit-appearance: none; appearance: none; }
+
+.photo-fiche { position: relative; height: 240px; border-radius: 22px; display: flex; align-items: center; justify-content: center; }
+.photo-fiche .lettre { font-size: 72px; }
+.flottant { position: absolute; background: var(--carte); border: none; }
+#boutonRetourFiche { top: 12px; left: 12px; }
+.actions-photo { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; }
+.actions-photo .flottant { position: static; }
+.actions-photo .pilule { height: 44px; border-radius: 22px; }
+.etoile { font-size: 20px; color: var(--gris); }
+.etoile[aria-pressed="true"] { color: var(--etoile); }
+.tete-fiche { display: flex; flex-direction: column; gap: 8px; }
+.tete-fiche h1 { font-size: 26px; line-height: 1.15; overflow-wrap: anywhere; }
+.puces { display: flex; flex-wrap: wrap; gap: 6px; }
+.puce { height: 30px; padding: 0 12px; border-radius: 15px; background: var(--piste); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; border: 1px solid transparent; }
+.puce.perso { background: transparent; border-color: var(--bord); }
+button.puce { border: 1px dashed var(--bord); background: none; }
+.infos-fiche { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: var(--carte); border-radius: 18px; padding: 12px 0; }
+.infos-fiche > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.infos-fiche > div + div { border-left: 1px solid var(--ligne); }
+.infos-fiche strong, .infos-fiche a { font-size: 16px; font-weight: 700; }
+.infos-fiche a { color: var(--p); text-decoration: none; }
+.pile-titre { display: flex; flex-direction: column; }
+.kcal-fiche { font-size: 24px; font-weight: 800; }
+.texte-droite { text-align: right; }
+.macros-fiche { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.macros-fiche > div { background: var(--fond); border-radius: 12px; padding: 8px 0; display: flex; flex-direction: column; align-items: center; }
+.macros-fiche strong { font-size: 15px; }
+.c-p { color: var(--p); } .c-g { color: var(--g); } .c-l { color: var(--l); } .c-f { color: var(--f); }
+.reglage-portions { display: flex; align-items: center; gap: 6px; background: var(--fond); border-radius: 20px; padding: 3px; }
+.reglage-portions button { width: 36px; height: 36px; border-radius: 18px; border: none; background: var(--carte); font-size: 18px; font-weight: 700; }
+.reglage-portions button:disabled { opacity: 0.35; }
+#textePortions { min-width: 86px; text-align: center; font-size: 14px; font-weight: 700; }
+.liste-fiche { list-style: none; margin: 0; padding: 0; }
+.liste-fiche li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ligne); font-size: 15px; }
+.liste-fiche .nom { min-width: 0; overflow-wrap: anywhere; }
+.liste-fiche strong { white-space: nowrap; }
+.etapes-fiche { margin: 0; padding: 0; list-style: none; counter-reset: etape; display: flex; flex-direction: column; gap: 12px; }
+.etapes-fiche li { counter-increment: etape; display: flex; gap: 12px; font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
+.etapes-fiche li::before {
+  content: counter(etape); flex: 0 0 auto; width: 28px; height: 28px; border-radius: 14px; background: var(--texte); color: var(--fond);
+  font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: -2px;
+}
+.notes-fiche { font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.carte h2 { font-size: 17px; }
+#feuilleRanger, #feuilleCarnet { overflow-y: auto; }
+.liste-cases .case {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--bord);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800;
+}
+.liste-cases button[aria-pressed="true"] .case { background: var(--texte); border-color: var(--texte); color: var(--fond); }
+.champ-select select { flex: 1 1 auto; min-width: 0; border: none; background: none; text-align: right; text-align-last: right; font: inherit; font-size: 18px; font-weight: 700; color: var(--texte); -webkit-appearance: none; appearance: none; }

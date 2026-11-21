@@ -30,7 +30,8 @@ Scripts à coller dans l'ordre dans Supabase › SQL Editor. Chacun peut être r
 - `config.js` : adresse du projet Supabase et clé **publishable** (publique). Jamais la clé secrète.
 - `manifest.json` + `icones/` : appli installable (« Partager › Ajouter à l'écran d'accueil » dans Safari).
 - `sw.js` : service worker. Les fichiers de l'appli sont toujours redemandés au serveur (copie seulement sans réseau ou après 4 s) ; les bibliothèques jsDelivr (versions figées) sont gardées. Les données Supabase et Open Food Facts ne passent jamais par lui.
-- Sans réseau : lecture seule, avec la copie gardée sur le téléphone (`localStorage`) : aliments, recettes, objectifs, favoris, 31 derniers jours et 8 dernières semaines consultés. Effacée à la déconnexion.
+- Sans réseau : lecture seule, avec la copie gardée sur le téléphone (`localStorage`) : aliments, recettes, carnets, objectifs, favoris, 31 derniers jours et 8 dernières semaines consultés. Effacée à la déconnexion.
+- Gardés sur le téléphone (par compte) : l'onglet « Communs | Mes carnets » choisi et le tri des recettes.
 - Plus besoin de changer le numéro `?v=` à chaque mise à jour (le service worker revérifie les fichiers).
 - Si la liste des fichiers de `sw.js` change, changer le nom du cache (`buonapp-1` → `buonapp-2`).
 
